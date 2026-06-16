@@ -11,8 +11,8 @@ type LogoPositionCallback = ({ x, y }: { x: number; y: number }) => void;
 
 export class MainMenu extends Scene {
     background!: GameObjects.Rectangle;
-    logo!: GameObjects.Image;
-    title!: GameObjects.Text;
+    horizontalLogo!: GameObjects.Image;
+    verticalLogo!: GameObjects.Image;
     logoTween: Phaser.Tweens.Tween | null = null;
     logoMoveCallback: LogoPositionCallback | null = null;
 
@@ -25,22 +25,30 @@ export class MainMenu extends Scene {
         const centerY = this.scale.height / 2;
 
         this.createResolutionGuide(centerX, centerY);
-
-        this.logo = this.add.image(centerX, centerY - 90, "logo").setDepth(100);
-
-        this.title = this.add
-            .text(centerX, centerY + 90, "Main Menu", {
-                fontFamily: "Arial Black",
-                fontSize: 38,
-                color: "#ffffff",
-                stroke: "#000000",
-                strokeThickness: 8,
-                align: "center",
-            })
-            .setOrigin(0.5)
-            .setDepth(100);
+        this.createSafeAreaLogoGuides(centerX, centerY);
 
         EventBus.emit("current-scene-ready", this);
+    }
+
+    createSafeAreaLogoGuides(centerX: number, centerY: number) {
+        const logoFrame = this.textures.getFrame("logo");
+        const logoHeightRatio = logoFrame.height / logoFrame.width;
+
+        this.horizontalLogo = this.add
+            .image(centerX, centerY, "logo")
+            .setOrigin(0.5)
+            .setDepth(100)
+            .setDisplaySize(SAFE_AREA_WIDTH, SAFE_AREA_WIDTH * logoHeightRatio);
+
+        this.verticalLogo = this.add
+            .image(centerX, centerY, "logo")
+            .setOrigin(0.5)
+            .setAngle(90)
+            .setDepth(101)
+            .setDisplaySize(
+                SAFE_AREA_HEIGHT,
+                SAFE_AREA_HEIGHT * logoHeightRatio
+            );
     }
 
     createResolutionGuide(centerX: number, centerY: number) {
@@ -131,7 +139,7 @@ export class MainMenu extends Scene {
         const targetY = PhaserMath.Between(Math.ceil(minY), Math.floor(maxY));
 
         this.logoTween = this.tweens.add({
-            targets: this.logo,
+            targets: this.horizontalLogo,
             x: targetX,
             y: targetY,
             duration: PhaserMath.Between(1200, 2200),
@@ -152,8 +160,8 @@ export class MainMenu extends Scene {
     getLogoSafeBounds() {
         const centerX = this.scale.width / 2;
         const centerY = this.scale.height / 2;
-        const logoHalfWidth = this.logo.displayWidth / 2;
-        const logoHalfHeight = this.logo.displayHeight / 2;
+        const logoHalfWidth = this.horizontalLogo.displayWidth / 2;
+        const logoHalfHeight = this.horizontalLogo.displayHeight / 2;
         const minX = centerX - SAFE_AREA_WIDTH / 2 + logoHalfWidth;
         const maxX = centerX + SAFE_AREA_WIDTH / 2 - logoHalfWidth;
         const minY = centerY - SAFE_AREA_HEIGHT / 2 + logoHalfHeight;
@@ -173,8 +181,8 @@ export class MainMenu extends Scene {
         }
 
         this.logoMoveCallback({
-            x: Math.floor(this.logo.x),
-            y: Math.floor(this.logo.y),
+            x: Math.floor(this.horizontalLogo.x),
+            y: Math.floor(this.horizontalLogo.y),
         });
     }
 }
