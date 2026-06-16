@@ -1,4 +1,4 @@
-import { type GameObjects, Scene } from "phaser";
+import { Math as PhaserMath, type GameObjects, Scene } from "phaser";
 
 import { EventBus } from "../EventBus";
 
@@ -7,11 +7,14 @@ const SAFE_AREA_HEIGHT = 1920;
 const MIN_GAME_ASPECT = 9 / 21;
 const MAX_GAME_ASPECT = 3 / 4;
 
+type LogoPositionCallback = ({ x, y }: { x: number; y: number }) => void;
+
 export class MainMenu extends Scene {
     background!: GameObjects.Rectangle;
     logo!: GameObjects.Image;
     title!: GameObjects.Text;
     logoTween: Phaser.Tweens.Tween | null = null;
+    logoMoveCallback: LogoPositionCallback | null = null;
 
     constructor() {
         super("MainMenu");
@@ -103,10 +106,14 @@ export class MainMenu extends Scene {
             this.logoTween = null;
         }
 
+        this.logoMoveCallback = null;
+
         this.scene.start("Game");
     }
 
-    moveLogo(vueCallback: ({ x, y }: { x: number; y: number }) => void) {
+    moveLogo(vueCallback: LogoPositionCallback) {
+        this.logoMoveCallback = vueCallback;
+
         if (this.logoTween) {
             if (this.logoTween.isPlaying()) {
                 this.logoTween.pause();
@@ -114,37 +121,60 @@ export class MainMenu extends Scene {
                 this.logoTween.play();
             }
         } else {
-            const centerX = this.scale.width / 2;
-            const centerY = this.scale.height / 2;
-            const logoHalfWidth = this.logo.displayWidth / 2;
-            const logoHalfHeight = this.logo.displayHeight / 2;
-            const safeAreaMaxX = centerX + SAFE_AREA_WIDTH / 2 - logoHalfWidth;
-            const safeAreaMinY =
-                centerY - SAFE_AREA_HEIGHT / 2 + logoHalfHeight;
-
-            this.logoTween = this.tweens.add({
-                targets: this.logo,
-                x: {
-                    value: safeAreaMaxX,
-                    duration: 3000,
-                    ease: "Back.easeInOut",
-                },
-                y: {
-                    value: safeAreaMinY,
-                    duration: 1500,
-                    ease: "Sine.easeOut",
-                },
-                yoyo: true,
-                repeat: -1,
-                onUpdate: () => {
-                    if (vueCallback) {
-                        vueCallback({
-                            x: Math.floor(this.logo.x),
-                            y: Math.floor(this.logo.y),
-                        });
-                    }
-                },
-            });
+            this.startLogoRoam();
         }
+    }
+
+    startLogoRoam() {
+        const { minX, maxX, minY, maxY } = this.getLogoSafeBounds();
+        const targetX = PhaserMath.Between(Math.ceil(minX), Math.floor(maxX));
+        const targetY = PhaserMath.Between(Math.ceil(minY), Math.floor(maxY));
+
+        this.logoTween = this.tweens.add({
+            targets: this.logo,
+            x: targetX,
+            y: targetY,
+            duration: PhaserMath.Between(1200, 2200),
+            ease: "Sine.easeInOut",
+            onUpdate: () => {
+                this.emitLogoPosition();
+            },
+            onComplete: () => {
+                this.logoTween = null;
+
+                if (this.logoMoveCallback) {
+                    this.startLogoRoam();
+                }
+            },
+        });
+    }
+
+    getLogoSafeBounds() {
+        const centerX = this.scale.width / 2;
+        const centerY = this.scale.height / 2;
+        const logoHalfWidth = this.logo.displayWidth / 2;
+        const logoHalfHeight = this.logo.displayHeight / 2;
+        const minX = centerX - SAFE_AREA_WIDTH / 2 + logoHalfWidth;
+        const maxX = centerX + SAFE_AREA_WIDTH / 2 - logoHalfWidth;
+        const minY = centerY - SAFE_AREA_HEIGHT / 2 + logoHalfHeight;
+        const maxY = centerY + SAFE_AREA_HEIGHT / 2 - logoHalfHeight;
+
+        return {
+            minX: Math.min(minX, maxX),
+            maxX: Math.max(minX, maxX),
+            minY: Math.min(minY, maxY),
+            maxY: Math.max(minY, maxY),
+        };
+    }
+
+    emitLogoPosition() {
+        if (!this.logoMoveCallback) {
+            return;
+        }
+
+        this.logoMoveCallback({
+            x: Math.floor(this.logo.x),
+            y: Math.floor(this.logo.y),
+        });
     }
 }
