@@ -1,75 +1,132 @@
-import { type GameObjects, Scene } from 'phaser';
+import { type GameObjects, Scene } from "phaser";
 
-import { EventBus } from '../EventBus';
+import { EventBus } from "../EventBus";
 
-export class MainMenu extends Scene
-{
-    background: GameObjects.Image;
-    logo: GameObjects.Image;
-    title: GameObjects.Text;
-    logoTween: Phaser.Tweens.Tween | null;
+export class MainMenu extends Scene {
+    background!: GameObjects.Rectangle;
+    logo!: GameObjects.Image;
+    title!: GameObjects.Text;
+    logoTween: Phaser.Tweens.Tween | null = null;
 
-    constructor ()
-    {
-        super('MainMenu');
+    constructor() {
+        super("MainMenu");
     }
 
-    create ()
-    {
-        this.background = this.add.image(512, 384, 'background');
+    create() {
+        const centerX = this.scale.width / 2;
+        const centerY = this.scale.height / 2;
 
-        this.logo = this.add.image(512, 300, 'logo').setDepth(100);
+        this.createResolutionGuide(centerX, centerY);
 
-        this.title = this.add.text(512, 460, 'Main Menu', {
-            fontFamily: 'Arial Black', fontSize: 38, color: '#ffffff',
-            stroke: '#000000', strokeThickness: 8,
-            align: 'center'
-        }).setOrigin(0.5).setDepth(100);
+        this.logo = this.add.image(centerX, centerY - 90, "logo").setDepth(100);
 
-        EventBus.emit('current-scene-ready', this);
+        this.title = this.add
+            .text(centerX, centerY + 90, "Main Menu", {
+                fontFamily: "Arial Black",
+                fontSize: 38,
+                color: "#ffffff",
+                stroke: "#000000",
+                strokeThickness: 8,
+                align: "center",
+            })
+            .setOrigin(0.5)
+            .setDepth(100);
+
+        EventBus.emit("current-scene-ready", this);
     }
-    
-    changeScene ()
-    {
-        if (this.logoTween)
-        {
+
+    createResolutionGuide(centerX: number, centerY: number) {
+        const safeWidth = 1080;
+        const safeHeight = 1920;
+        const maxWidth = safeHeight * (3 / 4);
+        const maxHeight = safeWidth / (9 / 21);
+        const wideOnlyWidth = (maxWidth - safeWidth) / 2;
+        const tallOnlyHeight = (maxHeight - safeHeight) / 2;
+
+        this.background = this.add
+            .rectangle(centerX, centerY, maxWidth, maxHeight, 0xff0000)
+            .setDepth(0);
+
+        this.add
+            .rectangle(
+                centerX - safeWidth / 2 - wideOnlyWidth / 2,
+                centerY,
+                wideOnlyWidth,
+                safeHeight,
+                0x0066ff
+            )
+            .setDepth(1);
+
+        this.add
+            .rectangle(
+                centerX + safeWidth / 2 + wideOnlyWidth / 2,
+                centerY,
+                wideOnlyWidth,
+                safeHeight,
+                0x0066ff
+            )
+            .setDepth(1);
+
+        this.add
+            .rectangle(
+                centerX,
+                centerY - safeHeight / 2 - tallOnlyHeight / 2,
+                safeWidth,
+                tallOnlyHeight,
+                0xffdd00
+            )
+            .setDepth(2);
+
+        this.add
+            .rectangle(
+                centerX,
+                centerY + safeHeight / 2 + tallOnlyHeight / 2,
+                safeWidth,
+                tallOnlyHeight,
+                0xffdd00
+            )
+            .setDepth(2);
+
+        this.add
+            .rectangle(centerX, centerY, safeWidth, safeHeight, 0x00aa44)
+            .setDepth(3);
+    }
+
+    changeScene() {
+        if (this.logoTween) {
             this.logoTween.stop();
             this.logoTween = null;
         }
 
-        this.scene.start('Game');
+        this.scene.start("Game");
     }
 
-    moveLogo (vueCallback: ({ x, y }: { x: number, y: number }) => void)
-    {
-        if (this.logoTween)
-        {
-            if (this.logoTween.isPlaying())
-            {
+    moveLogo(vueCallback: ({ x, y }: { x: number; y: number }) => void) {
+        if (this.logoTween) {
+            if (this.logoTween.isPlaying()) {
                 this.logoTween.pause();
-            }
-            else
-            {
+            } else {
                 this.logoTween.play();
             }
-        } 
-        else
-        {
+        } else {
             this.logoTween = this.tweens.add({
                 targets: this.logo,
-                x: { value: 750, duration: 3000, ease: 'Back.easeInOut' },
-                y: { value: 80, duration: 1500, ease: 'Sine.easeOut' },
+                x: {
+                    value: this.scale.width - 80,
+                    duration: 3000,
+                    ease: "Back.easeInOut",
+                },
+                y: { value: 80, duration: 1500, ease: "Sine.easeOut" },
                 yoyo: true,
                 repeat: -1,
                 onUpdate: () => {
-                    if (vueCallback)
-                    {
+                    if (vueCallback) {
                         vueCallback({
                             x: Math.floor(this.logo.x),
-                            y: Math.floor(this.logo.y)
+                            y: Math.floor(this.logo.y),
                         });
                     }
-                }
+                },
             });
         }
     }
