@@ -2,6 +2,11 @@ import { type GameObjects, Scene } from "phaser";
 
 import { EventBus } from "../EventBus";
 
+const SAFE_AREA_WIDTH = 1080;
+const SAFE_AREA_HEIGHT = 1920;
+const MIN_GAME_ASPECT = 9 / 21;
+const MAX_GAME_ASPECT = 3 / 4;
+
 export class MainMenu extends Scene {
     background!: GameObjects.Rectangle;
     logo!: GameObjects.Image;
@@ -36,10 +41,10 @@ export class MainMenu extends Scene {
     }
 
     createResolutionGuide(centerX: number, centerY: number) {
-        const safeWidth = 1080;
-        const safeHeight = 1920;
-        const maxWidth = safeHeight * (3 / 4);
-        const maxHeight = safeWidth / (9 / 21);
+        const safeWidth = SAFE_AREA_WIDTH;
+        const safeHeight = SAFE_AREA_HEIGHT;
+        const maxWidth = safeHeight * MAX_GAME_ASPECT;
+        const maxHeight = safeWidth / MIN_GAME_ASPECT;
         const wideOnlyWidth = (maxWidth - safeWidth) / 2;
         const tallOnlyHeight = (maxHeight - safeHeight) / 2;
 
@@ -109,14 +114,26 @@ export class MainMenu extends Scene {
                 this.logoTween.play();
             }
         } else {
+            const centerX = this.scale.width / 2;
+            const centerY = this.scale.height / 2;
+            const logoHalfWidth = this.logo.displayWidth / 2;
+            const logoHalfHeight = this.logo.displayHeight / 2;
+            const safeAreaMaxX = centerX + SAFE_AREA_WIDTH / 2 - logoHalfWidth;
+            const safeAreaMinY =
+                centerY - SAFE_AREA_HEIGHT / 2 + logoHalfHeight;
+
             this.logoTween = this.tweens.add({
                 targets: this.logo,
                 x: {
-                    value: this.scale.width - 80,
+                    value: safeAreaMaxX,
                     duration: 3000,
                     ease: "Back.easeInOut",
                 },
-                y: { value: 80, duration: 1500, ease: "Sine.easeOut" },
+                y: {
+                    value: safeAreaMinY,
+                    duration: 1500,
+                    ease: "Sine.easeOut",
+                },
                 yoyo: true,
                 repeat: -1,
                 onUpdate: () => {
