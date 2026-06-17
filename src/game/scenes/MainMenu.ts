@@ -14,9 +14,8 @@ import {
 type LogoPositionCallback = ({ x, y }: { x: number; y: number }) => void;
 
 export class MainMenu extends Scene {
-    background!: GameObjects.Rectangle;
     horizontalLogo!: GameObjects.Image;
-    verticalLogo!: GameObjects.Image;
+    safeAreaOverlay: GameObjects.Container | null = null;
     logoTween: Phaser.Tweens.Tween | null = null;
     logoMoveCallback: LogoPositionCallback | null = null;
 
@@ -27,13 +26,25 @@ export class MainMenu extends Scene {
     create() {
         useSafeAreaCamera(this);
 
-        this.createResolutionGuide();
-        this.createSafeAreaLogoGuides();
+        this.createLogo();
+
+        EventBus.on(
+            "debug-safe-area-changed",
+            this.setSafeAreaOverlayVisible,
+            this
+        );
+        this.events.once("shutdown", () => {
+            EventBus.off(
+                "debug-safe-area-changed",
+                this.setSafeAreaOverlayVisible,
+                this
+            );
+        });
 
         EventBus.emit("current-scene-ready", this);
     }
 
-    createSafeAreaLogoGuides() {
+    createLogo() {
         const logoFrame = this.textures.getFrame("logo");
         const logoHeightRatio = logoFrame.height / logoFrame.width;
 
@@ -42,19 +53,9 @@ export class MainMenu extends Scene {
             .setOrigin(0.5)
             .setDepth(100)
             .setDisplaySize(SAFE_AREA_WIDTH, SAFE_AREA_WIDTH * logoHeightRatio);
-
-        this.verticalLogo = this.add
-            .image(SAFE_AREA_CENTER_X, SAFE_AREA_CENTER_Y, "logo")
-            .setOrigin(0.5)
-            .setAngle(90)
-            .setDepth(101)
-            .setDisplaySize(
-                SAFE_AREA_HEIGHT,
-                SAFE_AREA_HEIGHT * logoHeightRatio
-            );
     }
 
-    createResolutionGuide() {
+    createSafeAreaOverlay() {
         const centerX = SAFE_AREA_CENTER_X;
         const centerY = SAFE_AREA_CENTER_Y;
         const safeWidth = SAFE_AREA_WIDTH;
@@ -64,53 +65,72 @@ export class MainMenu extends Scene {
         const wideOnlyWidth = (maxWidth - safeWidth) / 2;
         const tallOnlyHeight = (maxHeight - safeHeight) / 2;
 
-        this.background = this.add
-            .rectangle(centerX, centerY, maxWidth, maxHeight, 0xff0000)
-            .setDepth(0);
+        this.safeAreaOverlay = this.add
+            .container(0, 0)
+            .setDepth(1000)
+            .setAlpha(0.35);
 
-        this.add
-            .rectangle(
+        this.safeAreaOverlay.add(
+            this.add.rectangle(centerX, centerY, maxWidth, maxHeight, 0xff0000)
+        );
+
+        this.safeAreaOverlay.add(
+            this.add.rectangle(
                 centerX - safeWidth / 2 - wideOnlyWidth / 2,
                 centerY,
                 wideOnlyWidth,
                 safeHeight,
                 0x0066ff
             )
-            .setDepth(1);
+        );
 
-        this.add
-            .rectangle(
+        this.safeAreaOverlay.add(
+            this.add.rectangle(
                 centerX + safeWidth / 2 + wideOnlyWidth / 2,
                 centerY,
                 wideOnlyWidth,
                 safeHeight,
                 0x0066ff
             )
-            .setDepth(1);
+        );
 
-        this.add
-            .rectangle(
+        this.safeAreaOverlay.add(
+            this.add.rectangle(
                 centerX,
                 centerY - safeHeight / 2 - tallOnlyHeight / 2,
                 safeWidth,
                 tallOnlyHeight,
                 0xffdd00
             )
-            .setDepth(2);
+        );
 
-        this.add
-            .rectangle(
+        this.safeAreaOverlay.add(
+            this.add.rectangle(
                 centerX,
                 centerY + safeHeight / 2 + tallOnlyHeight / 2,
                 safeWidth,
                 tallOnlyHeight,
                 0xffdd00
             )
-            .setDepth(2);
+        );
 
-        this.add
-            .rectangle(centerX, centerY, safeWidth, safeHeight, 0x00aa44)
-            .setDepth(3);
+        this.safeAreaOverlay.add(
+            this.add.rectangle(
+                centerX,
+                centerY,
+                safeWidth,
+                safeHeight,
+                0x00aa44
+            )
+        );
+    }
+
+    setSafeAreaOverlayVisible(isVisible: boolean) {
+        if (isVisible && !this.safeAreaOverlay) {
+            this.createSafeAreaOverlay();
+        }
+
+        this.safeAreaOverlay?.setVisible(isVisible);
     }
 
     moveLogo(vueCallback: LogoPositionCallback) {
