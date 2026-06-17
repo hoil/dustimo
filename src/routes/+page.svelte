@@ -28,11 +28,13 @@
     let isFpsDebugEnabled = false;
     let isMemoryDebugEnabled = false;
     let isSafeAreaDebugEnabled = false;
+    let isFullAreaDebugEnabled = false;
     let debugFpsText = "FPS: -";
     let debugMemoryText = "Memory: -";
     const mockDebugItems = Array.from({ length: 10 }, (_, index) => `mock 항목 ${index + 1}`);
     $: isDebugStatusPanelVisible = isFpsDebugEnabled || isMemoryDebugEnabled;
     $: EventBus.emit("debug-safe-area-changed", isSafeAreaDebugEnabled);
+    $: EventBus.emit("debug-full-area-changed", isFullAreaDebugEnabled);
 
     const calculateGameFrame = () => {
 
@@ -209,6 +211,7 @@
     const currentScene = (_scene: Scene) => {
 
         EventBus.emit("debug-safe-area-changed", isSafeAreaDebugEnabled);
+        EventBus.emit("debug-full-area-changed", isFullAreaDebugEnabled);
 
     };
     
@@ -269,6 +272,10 @@
                             <label class="debug-checkbox-item">
                                 <input type="checkbox" bind:checked={isSafeAreaDebugEnabled} />
                                 <span>safe area 보기</span>
+                            </label>
+                            <label class="debug-checkbox-item">
+                                <input type="checkbox" bind:checked={isFullAreaDebugEnabled} />
+                                <span>full area 보기</span>
                             </label>
                             {#each mockDebugItems as item}
                                 <label class="debug-checkbox-item">
