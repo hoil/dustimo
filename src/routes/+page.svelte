@@ -328,7 +328,7 @@
         display: flex;
         justify-content: center;
         align-items: center;
-        background: #000000;
+        background: #333;
     }
 
     .game-frame {
