@@ -1,9 +1,8 @@
 <script lang="ts">
 
     import { onMount } from "svelte";
-    import { Math as PhaserMath, type Scene } from "phaser";
-    import type { MainMenu } from "../game/scenes/MainMenu";
-    import PhaserGame, { type TPhaserRef } from "../PhaserGame.svelte";
+    import type { Scene } from "phaser";
+    import PhaserGame from "../PhaserGame.svelte";
     import {
         MAX_GAME_ASPECT,
         MAX_GAME_HEIGHT,
@@ -15,16 +14,16 @@
     const toPixelValue = (value: number) => `${Math.round(value)}px`;
     const lerp = (from: number, to: number, progress: number) => from + ((to - from) * progress);
 
-    // The sprite can only be moved in the MainMenu Scene
-    let canMoveSprite = false;
     let isGameFrameReady = false;
     let gameFrameStyle = "";
     let gameSize = { width: SAFE_AREA_WIDTH, height: SAFE_AREA_HEIGHT };
-
-    //  References to the PhaserGame component (game and scene are exposed)
-    let phaserRef: TPhaserRef = { game: null, scene: null};
-    const spritePosition = { x: 0, y: 0 };
-    let spriteCount = 0;
+    let isDebugPopupOpen = false;
+    const debugItems = [
+        "초당 프레임",
+        "메모리 사용량",
+        "safe area 보기",
+        ...Array.from({ length: 10 }, (_, index) => `mock 항목 ${index + 1}`)
+    ];
 
     const calculateGameFrame = () => {
 
@@ -52,11 +51,21 @@
 
         const roundedFrameWidth = Math.round(frameWidth);
         const roundedFrameHeight = Math.round(frameHeight);
+        const domCoordinateScale = Math.min(frameWidth / gameWidth, frameHeight / gameHeight);
+        const domFrameOffsetX = (gameWidth - SAFE_AREA_WIDTH) / 2;
+        const domFrameOffsetY = (gameHeight - SAFE_AREA_HEIGHT) / 2;
 
         return {
             frameStyle: [
                 `width: ${roundedFrameWidth}px`,
                 `height: ${roundedFrameHeight}px`,
+                `--dom-coordinate-scale: ${domCoordinateScale}`,
+                `--dom-frame-left: ${-domFrameOffsetX}px`,
+                `--dom-frame-top: ${-domFrameOffsetY}px`,
+                `--dom-frame-right: ${SAFE_AREA_WIDTH + domFrameOffsetX}px`,
+                `--dom-frame-bottom: ${SAFE_AREA_HEIGHT + domFrameOffsetY}px`,
+                `--dom-frame-width: ${gameWidth}px`,
+                `--dom-frame-height: ${gameHeight}px`,
                 `--ui-safe-padding: ${toPixelValue(frameWidth * 0.041)}`,
                 `--ui-panel-padding-y: ${toPixelValue(frameWidth * 0.026)}`,
                 `--ui-panel-padding-x: ${toPixelValue(frameWidth * 0.031)}`,
@@ -132,78 +141,8 @@
 
     });
 
-    const changeScene = () => {
-
-        const scene = phaserRef.scene as MainMenu;
-
-        if (scene)
-        {
-
-            // Call the changeScene method defined in the `MainMenu`, `Game` and `GameOver` Scenes
-            scene.changeScene();
-
-        }
-
-    }
-    
-    const moveSprite = () => {
-
-        const scene = phaserRef.scene as MainMenu;
-
-        if (scene)
-        {
-
-            // Get the update logo position
-            (scene as MainMenu).moveLogo(({ x, y }) => {
-
-                spritePosition.x = x;
-                spritePosition.y = y;
-
-            });
-
-        }
-
-    }
-
-    const addSprite = () => {
-
-        const scene = phaserRef.scene as Scene;
-
-        if (!scene)
-        {
-            console.warn('Cannot add sprite: Phaser scene is not ready yet.');
-            return;
-        }
-
-        // Add more stars
-        const x = PhaserMath.Between(64, SAFE_AREA_WIDTH - 64);
-        const y = PhaserMath.Between(64, SAFE_AREA_HEIGHT - 64);
-
-        //  `add.sprite` is a Phaser GameObjectFactory method and it returns a Sprite Game Object instance
-        const star = scene.add.sprite(x, y, 'star')
-            .setDepth(200)
-            .setScale(1.5);
-
-        spriteCount += 1;
-
-        //  ... which you can then act upon. Here we create a Phaser Tween to fade the star sprite in and out.
-        //  You could, of course, do this from within the Phaser Scene code, but this is just an example
-        //  showing that Phaser objects and systems can be acted upon from outside of Phaser itself.
-        scene.add.tween({
-            targets: star,
-            duration: 500 + Math.random() * 1000,
-            alpha: 0,
-            yoyo: true,
-            repeat: -1
-        });
-    }
-
     // Event emitted from the PhaserGame component
-    const currentScene = (scene: Scene) => {
-
-        canMoveSprite = (scene.scene.key !== "MainMenu");
-
-    }
+    const currentScene = (_scene: Scene) => undefined;
     
 </script>
 
@@ -211,30 +150,44 @@
     <div class="game-frame" style={gameFrameStyle}>
         {#if isGameFrameReady}
             <PhaserGame
-                bind:phaserRef={phaserRef}
                 currentActiveScene={currentScene}
                 gameWidth={gameSize.width}
                 gameHeight={gameSize.height}
             />
 
-            <div class="dom-ui-layer">
-                <div class="dom-ui-safe-area">
-                    <div class="hud-panel">
-                        <div class="spritePosition">
-                            Sprite Position:
-                            <pre>{JSON.stringify(spritePosition, null, 2)}</pre>
-                        </div>
-                        <div class="spritePosition">
-                            Added Sprites: {spriteCount}
-                        </div>
-                    </div>
+            <div class="dom-coordinate-layer">
+                <button
+                    class="debug-open-button"
+                    type="button"
+                    on:click={() => isDebugPopupOpen = true}
+                >
+                    debug
+                </button>
 
-                    <div class="control-panel">
-                        <button class="button" on:click={changeScene}>Change Scene</button>
-                        <button class="button" disabled={canMoveSprite} on:click={moveSprite}>Toggle Movement</button>
-                        <button class="button" on:click={addSprite}>Add New Sprite</button>
+                {#if isDebugPopupOpen}
+                    <div class="debug-popup" role="dialog" aria-label="debug menu">
+                        <div class="debug-popup-header">
+                            <strong>Debug</strong>
+                            <button
+                                class="debug-close-button"
+                                type="button"
+                                aria-label="close debug menu"
+                                on:click={() => isDebugPopupOpen = false}
+                            >
+                                ×
+                            </button>
+                        </div>
+
+                        <div class="debug-popup-list">
+                            {#each debugItems as item}
+                                <label class="debug-checkbox-item">
+                                    <input type="checkbox" />
+                                    <span>{item}</span>
+                                </label>
+                            {/each}
+                        </div>
                     </div>
-                </div>
+                {/if}
             </div>
         {/if}
     </div>
@@ -265,86 +218,93 @@
         background: #000000;
     }
 
-    .dom-ui-layer {
+    .dom-coordinate-layer {
         position: absolute;
-        inset: 0;
-        z-index: 10;
+        left: 50%;
+        top: 50%;
+        z-index: 20;
+        width: 1080px;
+        height: 1920px;
+        transform: translate(-50%, -50%) scale(var(--dom-coordinate-scale));
+        transform-origin: center;
         pointer-events: none;
     }
 
-    .dom-ui-safe-area {
+    .debug-open-button {
         position: absolute;
-        inset: var(--safe-area-top) var(--safe-area-right) var(--safe-area-bottom) var(--safe-area-left);
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        gap: var(--ui-safe-padding);
-        padding: var(--ui-safe-padding);
-        pointer-events: none;
-    }
-
-    .hud-panel,
-    .control-panel {
+        left: var(--dom-frame-left);
+        top: 50%;
+        z-index: 1;
+        transform: translateY(-50%);
+        margin: 0;
+        padding: 16px 20px;
+        border: 2px solid #ff0000;
+        background: #ffffff;
+        color: #ff0000;
+        font-size: 28px;
+        font-weight: 700;
+        text-decoration: underline;
+        cursor: pointer;
         pointer-events: auto;
     }
 
-    .hud-panel {
-        width: fit-content;
-        max-width: 100%;
-        padding: var(--ui-panel-padding-y) var(--ui-panel-padding-x);
-        border: var(--ui-border-width) solid rgba(255, 255, 255, 0.2);
-        border-radius: var(--ui-panel-radius);
-        background: rgba(0, 0, 0, 0.45);
-        backdrop-filter: blur(4px);
-    }
-
-    .control-panel {
+    .debug-popup {
+        position: absolute;
+        left: calc(var(--dom-frame-left) + 60px);
+        top: calc(var(--dom-frame-top) + 60px);
+        z-index: 2;
         display: flex;
-        flex-wrap: nowrap;
-        justify-content: center;
-        gap: var(--ui-control-gap);
+        flex-direction: column;
+        width: calc(var(--dom-frame-width) - 120px);
+        height: calc(var(--dom-frame-height) - 120px);
+        border: 4px solid rgba(255, 255, 255, 0.9);
+        border-radius: 16px;
+        background: rgba(0, 0, 0, 0.88);
+        color: #ffffff;
+        overflow: hidden;
+        pointer-events: auto;
     }
-    
-    .spritePosition {
+
+    .debug-popup-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 20px 24px;
+        border-bottom: 2px solid rgba(255, 255, 255, 0.25);
+        font-size: 32px;
+    }
+
+    .debug-close-button {
         margin: 0;
-        font-size: var(--ui-font-size);
-    }
-
-    .spritePosition + .spritePosition {
-        margin-top: var(--ui-sprite-gap);
-    }
-
-    .spritePosition pre {
-        margin: var(--ui-pre-margin-top) 0 0;
-    }
-
-    .button {
-        width: var(--ui-button-width);
-        flex: 0 0 var(--ui-button-width);
-        padding: var(--ui-button-padding);
-        background-color: #000000;
-        color: rgba(255, 255, 255, 0.87);
-        border: var(--ui-border-width) solid rgba(255, 255, 255, 0.87);
-        border-radius: var(--ui-button-radius);
-        font-size: var(--ui-button-font-size);
-        white-space: nowrap;
+        padding: 0 16px;
+        border: 2px solid rgba(255, 255, 255, 0.6);
+        background: transparent;
+        color: #ffffff;
+        font-size: 40px;
+        line-height: 1.2;
         cursor: pointer;
-        transition: all 0.3s;
+    }
 
-        &:hover {
-            border: var(--ui-border-width) solid #0ec3c9;
-            color: #0ec3c9;
-        }
+    .debug-popup-list {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        padding: 16px 24px 24px;
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
+    }
 
-        &:active {
-            background-color: #0ec3c9;
-        }
+    .debug-checkbox-item {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 16px 0;
+        font-size: 48px;
+    }
 
-        /* Disabled styles */
-        &:disabled {
-            cursor: not-allowed;
-            border: var(--ui-border-width) solid rgba(255, 255, 255, 0.3);
-            color: rgba(255, 255, 255, 0.3);
-        }
+    .debug-checkbox-item input {
+        width: 48px;
+        height: 48px;
+        margin: 0;
     }
 </style>

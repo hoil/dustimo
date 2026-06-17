@@ -113,17 +113,6 @@ export class MainMenu extends Scene {
             .setDepth(3);
     }
 
-    changeScene() {
-        if (this.logoTween) {
-            this.logoTween.stop();
-            this.logoTween = null;
-        }
-
-        this.logoMoveCallback = null;
-
-        this.scene.start("Game");
-    }
-
     moveLogo(vueCallback: LogoPositionCallback) {
         this.logoMoveCallback = vueCallback;
 
