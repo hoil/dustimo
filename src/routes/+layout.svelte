@@ -10,6 +10,8 @@
         height: 100%;
         background-color: #000000;
         overflow: hidden;
+        touch-action: none;
+        -webkit-text-size-adjust: 100%;
     }
 
     :global(body) {
@@ -22,6 +24,10 @@
         font-family: Arial, Helvetica, sans-serif;
         overflow: hidden;
         overscroll-behavior: none;
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-touch-callout: none;
     }
 
     :global(*) {

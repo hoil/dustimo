@@ -4,12 +4,13 @@
     import { Math as PhaserMath, type Scene } from "phaser";
     import type { MainMenu } from "../game/scenes/MainMenu";
     import PhaserGame, { type TPhaserRef } from "../PhaserGame.svelte";
-
-    const MIN_GAME_ASPECT = 9 / 21;
-    const MAX_GAME_ASPECT = 3 / 4;
-    const SAFE_GAME_WIDTH = 1080;
-    const SAFE_GAME_HEIGHT = 1920;
-    const MAX_GAME_HEIGHT = SAFE_GAME_WIDTH / MIN_GAME_ASPECT;
+    import {
+        MAX_GAME_ASPECT,
+        MAX_GAME_HEIGHT,
+        MIN_GAME_ASPECT,
+        SAFE_AREA_HEIGHT,
+        SAFE_AREA_WIDTH
+    } from "../game/SafeArea";
 
     const toPixelValue = (value: number) => `${Math.round(value)}px`;
     const lerp = (from: number, to: number, progress: number) => from + ((to - from) * progress);
@@ -18,7 +19,7 @@
     let canMoveSprite = false;
     let isGameFrameReady = false;
     let gameFrameStyle = "";
-    let gameSize = { width: SAFE_GAME_WIDTH, height: SAFE_GAME_HEIGHT };
+    let gameSize = { width: SAFE_AREA_WIDTH, height: SAFE_AREA_HEIGHT };
 
     //  References to the PhaserGame component (game and scene are exposed)
     let phaserRef: TPhaserRef = { game: null, scene: null};
@@ -33,7 +34,7 @@
         const viewportAspect = viewportWidth / viewportHeight;
         const gameAspect = Math.min(MAX_GAME_ASPECT, Math.max(MIN_GAME_ASPECT, viewportAspect));
         const aspectProgress = (gameAspect - MIN_GAME_ASPECT) / (MAX_GAME_ASPECT - MIN_GAME_ASPECT);
-        const gameHeight = lerp(MAX_GAME_HEIGHT, SAFE_GAME_HEIGHT, aspectProgress);
+        const gameHeight = lerp(MAX_GAME_HEIGHT, SAFE_AREA_HEIGHT, aspectProgress);
         const gameWidth = gameHeight * gameAspect;
         let frameWidth = viewportWidth;
         let frameHeight = viewportHeight;
@@ -175,8 +176,8 @@
         }
 
         // Add more stars
-        const x = PhaserMath.Between(64, scene.scale.width - 64);
-        const y = PhaserMath.Between(64, scene.scale.height - 64);
+        const x = PhaserMath.Between(64, SAFE_AREA_WIDTH - 64);
+        const y = PhaserMath.Between(64, SAFE_AREA_HEIGHT - 64);
 
         //  `add.sprite` is a Phaser GameObjectFactory method and it returns a Sprite Game Object instance
         const star = scene.add.sprite(x, y, 'star')

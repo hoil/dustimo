@@ -1,14 +1,23 @@
 import { Scene } from "phaser";
 
+import {
+    SAFE_AREA_CENTER_X,
+    SAFE_AREA_CENTER_Y,
+    SAFE_AREA_WIDTH,
+    useSafeAreaCamera,
+} from "../SafeArea";
+
 export class Preloader extends Scene {
     constructor() {
         super("Preloader");
     }
 
     init() {
-        const centerX = this.scale.width / 2;
-        const centerY = this.scale.height / 2;
-        const progressWidth = Math.min(360, this.scale.width - 48);
+        useSafeAreaCamera(this);
+
+        const centerX = SAFE_AREA_CENTER_X;
+        const centerY = SAFE_AREA_CENTER_Y;
+        const progressWidth = Math.min(360, SAFE_AREA_WIDTH - 48);
 
         //  We loaded this image in our Boot Scene, so we can display it here
         this.add.image(centerX, centerY, "background");

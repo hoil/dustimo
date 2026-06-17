@@ -16,3 +16,13 @@
 -   max-width: 480px
 -   max-height: 900px
 -   화면 중앙 정렬
+
+# Phaser 좌표 시스템
+
+-   Phaser 씬의 공통 기준 좌표는 green safe area이다.
+-   green safe area의 좌상단을 `(0, 0)`, 우하단을 `(1080, 1920)`으로 사용한다.
+-   green safe area의 중앙 좌표는 `(540, 960)`이다.
+-   브라우저 리사이즈/비율 변화로 Phaser 캔버스의 논리 크기가 바뀌어도 gameplay/UI 오브젝트 좌표는 이 safe area 기준을 유지해야 한다.
+-   Phaser 씬에서는 `src/game/SafeArea.ts`의 `useSafeAreaCamera(this)`와 `SAFE_AREA_*` 상수를 사용한다.
+-   일반 gameplay/UI 오브젝트 배치에는 `this.scale.width`, `this.scale.height`를 직접 기준으로 쓰지 말고 safe area 좌표계를 우선 사용한다.
+-   green 밖의 파란/노란 확장 영역은 safe area 기준으로 음수 좌표 또는 `SAFE_AREA_WIDTH/HEIGHT`보다 큰 좌표 영역이다.

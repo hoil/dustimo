@@ -1,11 +1,15 @@
 import { Math as PhaserMath, type GameObjects, Scene } from "phaser";
 
 import { EventBus } from "../EventBus";
-
-const SAFE_AREA_WIDTH = 1080;
-const SAFE_AREA_HEIGHT = 1920;
-const MIN_GAME_ASPECT = 9 / 21;
-const MAX_GAME_ASPECT = 3 / 4;
+import {
+    MAX_GAME_ASPECT,
+    MIN_GAME_ASPECT,
+    SAFE_AREA_CENTER_X,
+    SAFE_AREA_CENTER_Y,
+    SAFE_AREA_HEIGHT,
+    SAFE_AREA_WIDTH,
+    useSafeAreaCamera,
+} from "../SafeArea";
 
 type LogoPositionCallback = ({ x, y }: { x: number; y: number }) => void;
 
@@ -15,72 +19,32 @@ export class MainMenu extends Scene {
     verticalLogo!: GameObjects.Image;
     logoTween: Phaser.Tweens.Tween | null = null;
     logoMoveCallback: LogoPositionCallback | null = null;
-    centerX = 0;
-    centerY = 0;
 
     constructor() {
         super("MainMenu");
     }
 
     create() {
-        const centerX = this.scale.width / 2;
-        const centerY = this.scale.height / 2;
+        useSafeAreaCamera(this);
 
-        this.centerX = centerX;
-        this.centerY = centerY;
-
-        this.createResolutionGuide(centerX, centerY);
-        this.createSafeAreaLogoGuides(centerX, centerY);
-
-        this.scale.on("resize", this.handleResize, this);
-        this.events.once("shutdown", () => {
-            this.scale.off("resize", this.handleResize, this);
-        });
+        this.createResolutionGuide();
+        this.createSafeAreaLogoGuides();
 
         EventBus.emit("current-scene-ready", this);
     }
 
-    handleResize() {
-        const centerX = this.scale.width / 2;
-        const centerY = this.scale.height / 2;
-        const deltaX = centerX - this.centerX;
-        const deltaY = centerY - this.centerY;
-
-        if (deltaX === 0 && deltaY === 0) {
-            return;
-        }
-
-        this.children.each((child) => {
-            const positionedChild = child as GameObjects.GameObject & {
-                x?: number;
-                y?: number;
-            };
-
-            if (typeof positionedChild.x === "number") {
-                positionedChild.x += deltaX;
-            }
-
-            if (typeof positionedChild.y === "number") {
-                positionedChild.y += deltaY;
-            }
-        });
-
-        this.centerX = centerX;
-        this.centerY = centerY;
-    }
-
-    createSafeAreaLogoGuides(centerX: number, centerY: number) {
+    createSafeAreaLogoGuides() {
         const logoFrame = this.textures.getFrame("logo");
         const logoHeightRatio = logoFrame.height / logoFrame.width;
 
         this.horizontalLogo = this.add
-            .image(centerX, centerY, "logo")
+            .image(SAFE_AREA_CENTER_X, SAFE_AREA_CENTER_Y, "logo")
             .setOrigin(0.5)
             .setDepth(100)
             .setDisplaySize(SAFE_AREA_WIDTH, SAFE_AREA_WIDTH * logoHeightRatio);
 
         this.verticalLogo = this.add
-            .image(centerX, centerY, "logo")
+            .image(SAFE_AREA_CENTER_X, SAFE_AREA_CENTER_Y, "logo")
             .setOrigin(0.5)
             .setAngle(90)
             .setDepth(101)
@@ -90,7 +54,9 @@ export class MainMenu extends Scene {
             );
     }
 
-    createResolutionGuide(centerX: number, centerY: number) {
+    createResolutionGuide() {
+        const centerX = SAFE_AREA_CENTER_X;
+        const centerY = SAFE_AREA_CENTER_Y;
         const safeWidth = SAFE_AREA_WIDTH;
         const safeHeight = SAFE_AREA_HEIGHT;
         const maxWidth = safeHeight * MAX_GAME_ASPECT;
@@ -197,14 +163,12 @@ export class MainMenu extends Scene {
     }
 
     getLogoSafeBounds() {
-        const centerX = this.scale.width / 2;
-        const centerY = this.scale.height / 2;
         const logoHalfWidth = this.horizontalLogo.displayWidth / 2;
         const logoHalfHeight = this.horizontalLogo.displayHeight / 2;
-        const minX = centerX - SAFE_AREA_WIDTH / 2 + logoHalfWidth;
-        const maxX = centerX + SAFE_AREA_WIDTH / 2 - logoHalfWidth;
-        const minY = centerY - SAFE_AREA_HEIGHT / 2 + logoHalfHeight;
-        const maxY = centerY + SAFE_AREA_HEIGHT / 2 - logoHalfHeight;
+        const minX = logoHalfWidth;
+        const maxX = SAFE_AREA_WIDTH - logoHalfWidth;
+        const minY = logoHalfHeight;
+        const maxY = SAFE_AREA_HEIGHT - logoHalfHeight;
 
         return {
             minX: Math.min(minX, maxX),

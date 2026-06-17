@@ -1,5 +1,10 @@
 import { EventBus } from "../EventBus";
 import { Scene } from "phaser";
+import {
+    SAFE_AREA_CENTER_X,
+    SAFE_AREA_CENTER_Y,
+    useSafeAreaCamera,
+} from "../SafeArea";
 
 export class GameOver extends Scene {
     camera!: Phaser.Cameras.Scene2D.Camera;
@@ -11,8 +16,10 @@ export class GameOver extends Scene {
     }
 
     create() {
-        const centerX = this.scale.width / 2;
-        const centerY = this.scale.height / 2;
+        useSafeAreaCamera(this);
+
+        const centerX = SAFE_AREA_CENTER_X;
+        const centerY = SAFE_AREA_CENTER_Y;
 
         this.camera = this.cameras.main;
         this.camera.setBackgroundColor(0xff0000);
