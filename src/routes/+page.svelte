@@ -354,8 +354,10 @@
         position: fixed;
         left: 0;
         top: 0;
-        right: 0;
-        bottom: calc(-1 * var(--safe-area-bottom));
+        width: 100vw;
+        height: 100vh;
+        height: 100lvh;
+        height: calc(100lvh + var(--safe-area-bottom));
         overflow: hidden;
         display: flex;
         justify-content: center;
