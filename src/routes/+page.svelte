@@ -353,9 +353,8 @@
 
         position: fixed;
         inset: 0;
-        width: 100%;
-        height: 100%;
-        min-height: -webkit-fill-available;
+        width: 100vw;
+        height: 100vh;
         overflow: hidden;
         display: flex;
         justify-content: center;
@@ -369,7 +368,7 @@
         width: 100%;
         height: 100%;
         overflow: hidden;
-        background: #000000;
+        background: #333;
     }
 
     .dom-coordinate-layer {

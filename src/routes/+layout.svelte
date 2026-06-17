@@ -8,25 +8,19 @@
     :global(html) {
         position: fixed;
         inset: 0;
-        width: 100%;
-        height: 100%;
+        width: 100vw;
+        height: 100vh;
         background-color: #333;
         overflow: hidden;
         touch-action: none;
         -webkit-text-size-adjust: 100%;
     }
 
-    @supports (-webkit-touch-callout: none) {
-        :global(html) {
-            height: -webkit-fill-available;
-        }
-    }
-
     :global(body) {
         position: fixed;
         inset: 0;
-        width: 100%;
-        height: 100%;
+        width: 100vw;
+        height: 100vh;
         min-height: 100%;
         margin: 0;
         padding: 0;
@@ -39,13 +33,6 @@
         user-select: none;
         -webkit-user-select: none;
         -webkit-touch-callout: none;
-    }
-
-    @supports (-webkit-touch-callout: none) {
-        :global(body) {
-            height: -webkit-fill-available;
-            min-height: -webkit-fill-available;
-        }
     }
 
     :global(*) {
