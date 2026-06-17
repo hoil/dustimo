@@ -26,6 +26,7 @@
     let isGameFrameReady = false;
     let gameFrameStyle = "";
     let gameSize = { width: SAFE_AREA_WIDTH, height: SAFE_AREA_HEIGHT };
+    let appElement: HTMLDivElement;
     let isDebugPopupOpen = false;
     let isFpsDebugEnabled = false;
     let isMemoryDebugEnabled = false;
@@ -37,6 +38,28 @@
     $: isDebugStatusPanelVisible = isFpsDebugEnabled || isMemoryDebugEnabled;
     $: EventBus.emit("debug-safe-area-changed", isSafeAreaDebugEnabled);
     $: EventBus.emit("debug-full-area-changed", isFullAreaDebugEnabled);
+
+    const parsePixelValue = (value: string) => Number.parseFloat(value) || 0;
+
+    const getViewportSafeAreaInsets = () => {
+
+        if (!appElement)
+        {
+
+            return { top: 0, right: 0, bottom: 0, left: 0 };
+
+        }
+
+        const style = getComputedStyle(appElement);
+
+        return {
+            top: parsePixelValue(style.getPropertyValue("--safe-area-top")),
+            right: parsePixelValue(style.getPropertyValue("--safe-area-right")),
+            bottom: parsePixelValue(style.getPropertyValue("--safe-area-bottom")),
+            left: parsePixelValue(style.getPropertyValue("--safe-area-left"))
+        };
+
+    };
 
     const calculateGameFrame = () => {
 
@@ -93,6 +116,8 @@
         const domCoordinateScale = Math.min(frameWidth / gameWidth, frameHeight / gameHeight);
         const domFrameOffsetX = (gameWidth - SAFE_AREA_WIDTH) / 2;
         const domFrameOffsetY = (gameHeight - SAFE_AREA_HEIGHT) / 2;
+        const safeAreaInsets = getViewportSafeAreaInsets();
+        const toLogicalInset = (value: number) => `${value / domCoordinateScale}px`;
 
         return {
             frameStyle: [
@@ -105,6 +130,10 @@
                 `--dom-frame-bottom: ${SAFE_AREA_HEIGHT + domFrameOffsetY}px`,
                 `--dom-frame-width: ${gameWidth}px`,
                 `--dom-frame-height: ${gameHeight}px`,
+                `--dom-safe-top: ${toLogicalInset(safeAreaInsets.top)}`,
+                `--dom-safe-right: ${toLogicalInset(safeAreaInsets.right)}`,
+                `--dom-safe-bottom: ${toLogicalInset(safeAreaInsets.bottom)}`,
+                `--dom-safe-left: ${toLogicalInset(safeAreaInsets.left)}`,
                 `--ui-safe-padding: ${toPixelValue(frameWidth * 0.041)}`,
                 `--ui-panel-padding-y: ${toPixelValue(frameWidth * 0.026)}`,
                 `--ui-panel-padding-x: ${toPixelValue(frameWidth * 0.031)}`,
@@ -234,7 +263,7 @@
     
 </script>
 
-<div id="app">
+<div id="app" bind:this={appElement}>
     <div class="game-frame" style={gameFrameStyle}>
         {#if isGameFrameReady}
             <PhaserGame
@@ -322,8 +351,10 @@
         --safe-area-bottom: env(safe-area-inset-bottom, 0px);
         --safe-area-left: env(safe-area-inset-left, 0px);
 
-        width: 100vw;
-        height: 100dvh;
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
         overflow: hidden;
         display: flex;
         justify-content: center;
@@ -334,8 +365,8 @@
     .game-frame {
         position: relative;
         flex: 0 0 auto;
-        width: 100vw;
-        height: 100dvh;
+        width: 100%;
+        height: 100%;
         overflow: hidden;
         background: #000000;
     }
@@ -355,7 +386,7 @@
     .debug-status-panel {
         position: absolute;
         left: 50%;
-        top: calc(var(--dom-frame-top) + 32px);
+        top: calc(var(--dom-frame-top) + var(--dom-safe-top) + 32px);
         z-index: 3;
         transform: translateX(-50%);
         min-width: 360px;
@@ -373,7 +404,7 @@
 
     .debug-open-button {
         position: absolute;
-        left: var(--dom-frame-left);
+        left: calc(var(--dom-frame-left) + var(--dom-safe-left));
         top: 50%;
         z-index: 1;
         transform: translateY(-50%);
@@ -391,13 +422,13 @@
 
     .debug-popup {
         position: absolute;
-        left: calc(var(--dom-frame-left) + 60px);
-        top: calc(var(--dom-frame-top) + 60px);
+        left: calc(var(--dom-frame-left) + var(--dom-safe-left) + 60px);
+        top: calc(var(--dom-frame-top) + var(--dom-safe-top) + 60px);
         z-index: 2;
         display: flex;
         flex-direction: column;
-        width: calc(var(--dom-frame-width) - 120px);
-        height: calc(var(--dom-frame-height) - 120px);
+        width: calc(var(--dom-frame-width) - var(--dom-safe-left) - var(--dom-safe-right) - 120px);
+        height: calc(var(--dom-frame-height) - var(--dom-safe-top) - var(--dom-safe-bottom) - 120px);
         border: 4px solid rgba(255, 255, 255, 0.9);
         border-radius: 16px;
         background: rgba(0, 0, 0, 0.88);

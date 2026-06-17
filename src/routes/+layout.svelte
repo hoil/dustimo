@@ -6,6 +6,8 @@
 
 <style>
     :global(html) {
+        position: fixed;
+        inset: 0;
         width: 100%;
         height: 100%;
         background-color: #333;
@@ -15,7 +17,10 @@
     }
 
     :global(body) {
+        position: fixed;
+        inset: 0;
         width: 100%;
+        height: 100%;
         min-height: 100%;
         margin: 0;
         padding: 0;

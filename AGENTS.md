@@ -35,4 +35,6 @@
 -   UI를 green safe area가 아니라 캔버스/화면 전체 가장자리에 붙여야 할 때는 `--dom-frame-left`, `--dom-frame-top`, `--dom-frame-right`, `--dom-frame-bottom`, `--dom-frame-width`, `--dom-frame-height` CSS 변수를 사용한다.
 -   예: 화면 좌측에 붙일 때는 `left: var(--dom-frame-left);`, 화면 대부분을 채우는 팝업은 `left: calc(var(--dom-frame-left) + 60px); width: calc(var(--dom-frame-width) - 120px);`처럼 작성한다.
 -   `--dom-frame-*` 값은 safe area 기준 좌표계 안에서 캔버스 전체 영역을 표현하므로, wide/tall 확장 영역에서는 음수 좌표 또는 `1080/1920`을 초과하는 좌표가 될 수 있다.
+-   iOS 노치/홈 인디케이터 같은 OS safe area를 피해야 하는 DOM UI는 `--dom-safe-top`, `--dom-safe-right`, `--dom-safe-bottom`, `--dom-safe-left`를 함께 사용한다.
+-   예: 화면 상단에 붙는 UI는 `top: calc(var(--dom-frame-top) + var(--dom-safe-top) + 32px);`, 화면 대부분을 채우는 팝업은 `height: calc(var(--dom-frame-height) - var(--dom-safe-top) - var(--dom-safe-bottom) - 120px);`처럼 작성한다.
 -   클릭 가능한 DOM UI는 coordinate layer가 `pointer-events: none`인 것을 고려해 해당 요소에 `pointer-events: auto`를 지정한다.
