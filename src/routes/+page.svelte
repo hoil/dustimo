@@ -6,14 +6,12 @@
     import { EventBus } from "../game/EventBus";
     import {
         MAX_GAME_ASPECT,
-        MAX_GAME_HEIGHT,
         MIN_GAME_ASPECT,
         SAFE_AREA_HEIGHT,
         SAFE_AREA_WIDTH
     } from "../game/SafeArea";
 
     const toPixelValue = (value: number) => `${Math.round(value)}px`;
-    const lerp = (from: number, to: number, progress: number) => from + ((to - from) * progress);
     type PerformanceMemory = {
         usedJSHeapSize: number;
         totalJSHeapSize: number;
@@ -43,11 +41,22 @@
         const viewportHeight = Math.max(1, viewport?.height ?? window.innerHeight);
         const viewportAspect = viewportWidth / viewportHeight;
         const gameAspect = Math.min(MAX_GAME_ASPECT, Math.max(MIN_GAME_ASPECT, viewportAspect));
-        const aspectProgress = (gameAspect - MIN_GAME_ASPECT) / (MAX_GAME_ASPECT - MIN_GAME_ASPECT);
-        const gameHeight = lerp(MAX_GAME_HEIGHT, SAFE_AREA_HEIGHT, aspectProgress);
-        const gameWidth = gameHeight * gameAspect;
+        const safeAspect = SAFE_AREA_WIDTH / SAFE_AREA_HEIGHT;
+        let gameWidth = SAFE_AREA_WIDTH;
+        let gameHeight = SAFE_AREA_HEIGHT;
         let frameWidth = viewportWidth;
         let frameHeight = viewportHeight;
+
+        if (gameAspect > safeAspect)
+        {
+            gameHeight = SAFE_AREA_HEIGHT;
+            gameWidth = gameHeight * gameAspect;
+        }
+        else if (gameAspect < safeAspect)
+        {
+            gameWidth = SAFE_AREA_WIDTH;
+            gameHeight = gameWidth / gameAspect;
+        }
 
         if (viewportAspect > MAX_GAME_ASPECT)
         {

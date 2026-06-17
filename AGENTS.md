@@ -7,16 +7,6 @@
 -   작업 완료 후 브라우저 테스트는 진행하지마.
 -   git 커맨드는 확인 용도만 가능하고, 실제 git 상태가 바뀌거나 동작하는 커맨드는 절대 실행하지 말 것.
 
-# 씬 별 구현내용을 아래에 정리하도록 해
-
--   {여기다가 리스트로 쭉쭉내려가면서}
-    게임 프레임
--   width: 100%
--   height: 100dvh
--   max-width: 480px
--   max-height: 900px
--   화면 중앙 정렬
-
 # Phaser 좌표 시스템
 
 -   Phaser 씬의 공통 기준 좌표는 green safe area이다.
@@ -26,6 +16,11 @@
 -   Phaser 씬에서는 `src/game/SafeArea.ts`의 `useSafeAreaCamera(this)`와 `SAFE_AREA_*` 상수를 사용한다.
 -   일반 gameplay/UI 오브젝트 배치에는 `this.scale.width`, `this.scale.height`를 직접 기준으로 쓰지 말고 safe area 좌표계를 우선 사용한다.
 -   green 밖의 파란/노란 확장 영역은 safe area 기준으로 음수 좌표 또는 `SAFE_AREA_WIDTH/HEIGHT`보다 큰 좌표 영역이다.
+-   논리 캔버스는 safe area `1080 x 1920`을 기준으로 현재 화면비를 맞추는 데 필요한 축만 확장한다.
+-   화면이 safe area보다 넓으면 세로 `1920`은 유지하고 가로만 확장해 파란 좌우 영역만 생기게 한다.
+-   화면이 safe area보다 길면 가로 `1080`은 유지하고 세로만 확장해 노란 상하 영역만 생기게 한다.
+-   safe area와 같은 비율에서는 확장 영역 없이 green 영역만 보이게 한다.
+-   green 밖 확장 영역에는 배경 연장, 장식, 디버그/시스템 UI처럼 게임 밸런스에 직접 영향이 적은 요소를 우선 배치한다.
 
 # DOM UI 좌표 시스템
 
