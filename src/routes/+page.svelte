@@ -5,6 +5,8 @@
     import PhaserGame from "../PhaserGame.svelte";
     import { EventBus } from "../game/EventBus";
     import {
+        FULL_AREA_HEIGHT,
+        FULL_AREA_WIDTH,
         MAX_GAME_ASPECT,
         MIN_GAME_ASPECT,
         SAFE_AREA_HEIGHT,
@@ -44,12 +46,27 @@
         const viewportAspect = viewportWidth / viewportHeight;
         const gameAspect = Math.min(MAX_GAME_ASPECT, Math.max(MIN_GAME_ASPECT, viewportAspect));
         const safeAspect = SAFE_AREA_WIDTH / SAFE_AREA_HEIGHT;
-        let gameWidth = SAFE_AREA_WIDTH;
-        let gameHeight = SAFE_AREA_HEIGHT;
+        let gameWidth = isFullAreaDebugEnabled ? FULL_AREA_WIDTH : SAFE_AREA_WIDTH;
+        let gameHeight = isFullAreaDebugEnabled ? FULL_AREA_HEIGHT : SAFE_AREA_HEIGHT;
         let frameWidth = viewportWidth;
         let frameHeight = viewportHeight;
 
-        if (gameAspect > safeAspect)
+        if (isFullAreaDebugEnabled)
+        {
+            const fullAreaAspect = FULL_AREA_WIDTH / FULL_AREA_HEIGHT;
+
+            if (viewportAspect > fullAreaAspect)
+            {
+                frameHeight = viewportHeight;
+                frameWidth = frameHeight * fullAreaAspect;
+            }
+            else
+            {
+                frameWidth = viewportWidth;
+                frameHeight = frameWidth / fullAreaAspect;
+            }
+        }
+        else if (gameAspect > safeAspect)
         {
             gameHeight = SAFE_AREA_HEIGHT;
             gameWidth = gameHeight * gameAspect;
@@ -60,12 +77,12 @@
             gameHeight = gameWidth / gameAspect;
         }
 
-        if (viewportAspect > MAX_GAME_ASPECT)
+        if (!isFullAreaDebugEnabled && viewportAspect > MAX_GAME_ASPECT)
         {
             frameHeight = viewportHeight;
             frameWidth = frameHeight * MAX_GAME_ASPECT;
         }
-        else if (viewportAspect < MIN_GAME_ASPECT)
+        else if (!isFullAreaDebugEnabled && viewportAspect < MIN_GAME_ASPECT)
         {
             frameWidth = viewportWidth;
             frameHeight = frameWidth / MIN_GAME_ASPECT;
@@ -274,7 +291,14 @@
                                 <span>safe area 보기</span>
                             </label>
                             <label class="debug-checkbox-item">
-                                <input type="checkbox" bind:checked={isFullAreaDebugEnabled} />
+                                <input
+                                    type="checkbox"
+                                    checked={isFullAreaDebugEnabled}
+                                    on:change={(event) => {
+                                        isFullAreaDebugEnabled = event.currentTarget.checked;
+                                        updateGameFrame();
+                                    }}
+                                />
                                 <span>full area 보기</span>
                             </label>
                             {#each mockDebugItems as item}

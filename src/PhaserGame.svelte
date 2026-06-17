@@ -27,7 +27,23 @@
     let game: Game | null = null;
     let gameContainer: HTMLDivElement;
     let resizeObserver: ResizeObserver | null = null;
-    let refreshAnimationFrameId: number | null = null;
+    let refreshAnimationFrameIds: number[] = [];
+    let refreshTimeoutIds: number[] = [];
+
+    const runScaleRefresh = () => {
+
+        game?.scale.refresh();
+
+    };
+
+    const clearScheduledScaleRefresh = () => {
+
+        refreshAnimationFrameIds.forEach(cancelAnimationFrame);
+        refreshAnimationFrameIds = [];
+        refreshTimeoutIds.forEach(clearTimeout);
+        refreshTimeoutIds = [];
+
+    };
 
     const refreshScale = () => {
 
@@ -38,19 +54,23 @@
 
         }
 
-        if (refreshAnimationFrameId !== null)
-        {
+        clearScheduledScaleRefresh();
 
-            cancelAnimationFrame(refreshAnimationFrameId);
+        const firstFrameId = requestAnimationFrame(() => {
 
-        }
+            runScaleRefresh();
 
-        refreshAnimationFrameId = requestAnimationFrame(() => {
-
-            refreshAnimationFrameId = null;
-            game?.scale.refresh();
+            const secondFrameId = requestAnimationFrame(runScaleRefresh);
+            refreshAnimationFrameIds = refreshAnimationFrameIds.filter((id) => id !== firstFrameId);
+            refreshAnimationFrameIds.push(secondFrameId);
 
         });
+
+        const firstTimeoutId = window.setTimeout(runScaleRefresh, 50);
+        const secondTimeoutId = window.setTimeout(runScaleRefresh, 120);
+
+        refreshAnimationFrameIds.push(firstFrameId);
+        refreshTimeoutIds.push(firstTimeoutId, secondTimeoutId);
 
     };
 
@@ -73,12 +93,13 @@
             {
 
                 game.scale.setGameSize(width, height);
+                refreshScale();
 
             }
             else
             {
 
-                game.scale.refresh();
+                refreshScale();
 
             }
 
@@ -111,13 +132,7 @@
 
         return () => {
 
-            if (refreshAnimationFrameId !== null)
-            {
-
-                cancelAnimationFrame(refreshAnimationFrameId);
-
-            }
-
+            clearScheduledScaleRefresh();
             resizeObserver?.disconnect();
             EventBus.off('current-scene-ready', handleCurrentSceneReady);
             game?.destroy(true);
