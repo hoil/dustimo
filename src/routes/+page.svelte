@@ -356,8 +356,8 @@
         top: 0;
         width: 100vw;
         height: 100vh;
-        height: 100lvh;
-        height: calc(100lvh + var(--safe-area-bottom));
+        height: 100dvh;
+        /* height: calc(100dvh + var(--safe-area-bottom)); */
         overflow: hidden;
         display: flex;
         justify-content: center;
