@@ -360,7 +360,7 @@
         display: flex;
         justify-content: center;
         align-items: center;
-        background: #333;
+        background: #cdbfff;
     }
 
     .game-frame {
@@ -369,7 +369,7 @@
         width: 100%;
         height: 100%;
         overflow: hidden;
-        background: #333;
+        background: #ff86fb;
     }
 
     .dom-coordinate-layer {
