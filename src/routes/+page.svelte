@@ -32,10 +32,15 @@
     let isMemoryDebugEnabled = false;
     let isSafeAreaDebugEnabled = false;
     let isFullAreaDebugEnabled = false;
+    let hasGameStarted = false;
+    let isLoadingOverlayVisible = false;
+    let loadingProgress = 0;
     let debugFpsText = "FPS: -";
     let debugMemoryText = "Memory: -";
     const mockDebugItems = Array.from({ length: 10 }, (_, index) => `mock 항목 ${index + 1}`);
     $: isDebugStatusPanelVisible = isFpsDebugEnabled || isMemoryDebugEnabled;
+    $: loadingPercent = Math.round(loadingProgress * 100);
+    $: loadingBarWidth = `${loadingPercent}%`;
     $: EventBus.emit("debug-safe-area-changed", isSafeAreaDebugEnabled);
     $: EventBus.emit("debug-full-area-changed", isFullAreaDebugEnabled);
 
@@ -190,6 +195,20 @@
 
     };
 
+    const startGuestPlay = () => {
+
+        loadingProgress = 0;
+        isLoadingOverlayVisible = true;
+        hasGameStarted = true;
+
+    };
+
+    const startLoginPlay = () => {
+
+        // TODO: 로그인 플로우 연결 후 교체
+
+    };
+
     onMount(() => {
 
         let animationFrameId: number | null = null;
@@ -240,9 +259,16 @@
 
         };
 
+        const handleGameLoadingProgress = (progress: number) => {
+
+            loadingProgress = Math.min(1, Math.max(0, progress));
+
+        };
+
         updateGameFrame();
         fpsAnimationFrameId = requestAnimationFrame(updateFpsFrameCount);
         debugUpdateIntervalId = window.setInterval(updateDebugStatus, 500);
+        EventBus.on("game-loading-progress", handleGameLoadingProgress);
 
         window.addEventListener("resize", scheduleGameFrameUpdate);
         window.visualViewport?.addEventListener("resize", scheduleGameFrameUpdate);
@@ -272,6 +298,7 @@
 
             window.removeEventListener("resize", scheduleGameFrameUpdate);
             window.visualViewport?.removeEventListener("resize", scheduleGameFrameUpdate);
+            EventBus.off("game-loading-progress", handleGameLoadingProgress);
 
         };
 
@@ -282,6 +309,8 @@
 
         EventBus.emit("debug-safe-area-changed", isSafeAreaDebugEnabled);
         EventBus.emit("debug-full-area-changed", isFullAreaDebugEnabled);
+        loadingProgress = 1;
+        isLoadingOverlayVisible = false;
 
     };
     
@@ -289,7 +318,7 @@
 
 <div id="app" bind:this={appElement}>
     <div class="game-frame" style={gameFrameStyle}>
-        {#if isGameFrameReady}
+        {#if isGameFrameReady && hasGameStarted}
             <PhaserGame
                 currentActiveScene={currentScene}
                 gameWidth={gameSize.width}
@@ -365,6 +394,36 @@
                 {/if}
             </div>
         {/if}
+
+        {#if isGameFrameReady && !hasGameStarted}
+            <div class="start-frame-background"></div>
+            <div class="dom-coordinate-layer start-coordinate-layer">
+                <div class="start-content">
+                    <h1 class="start-title">Dustimo</h1>
+                    <div class="start-buttons">
+                        <button class="start-button" type="button" on:click={startGuestPlay}>
+                            바로 플레이
+                        </button>
+                        <button class="start-button" type="button" on:click={startLoginPlay}>
+                            로그인하고 플레이
+                        </button>
+                    </div>
+                </div>
+            </div>
+        {/if}
+
+        {#if isLoadingOverlayVisible}
+            <div class="loading-frame-cover"></div>
+            <div class="dom-coordinate-layer loading-coordinate-layer" aria-live="polite">
+                <div class="loading-overlay">
+                    <div class="loading-title">Loading</div>
+                    <div class="loading-bar-track" aria-label="loading progress">
+                        <div class="loading-bar-fill" style={`width: ${loadingBarWidth}`}></div>
+                    </div>
+                    <div class="loading-percent">{loadingPercent}%</div>
+                </div>
+            </div>
+        {/if}
     </div>
 </div>
 
@@ -396,6 +455,7 @@
         height: 100%;
         overflow: hidden;
         background: #ff86fb;
+        background: #100f0f;
     }
 
     .dom-coordinate-layer {
@@ -405,9 +465,127 @@
         z-index: 20;
         width: 1080px;
         height: 1920px;
-        transform: translate(-50%, -50%) scale(var(--dom-coordinate-scale));
+        transform: translate(-50%, -50%) scale(var(--dom-coordinate-scale, 1));
         transform-origin: center;
         pointer-events: none;
+    }
+
+    .loading-frame-cover {
+        position: absolute;
+        inset: 0;
+        z-index: 39;
+        background: #100f0f;
+        pointer-events: auto;
+    }
+
+    .start-coordinate-layer {
+        z-index: 30;
+    }
+
+    .start-frame-background {
+        position: absolute;
+        inset: 0;
+        z-index: 25;
+        background: red;
+        pointer-events: none;
+    }
+
+    .start-content {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 1080px;
+        height: 1920px;
+        color: #ffffff;
+        pointer-events: none;
+    }
+
+    .start-title {
+        position: absolute;
+        left: 50%;
+        top: 500px;
+        transform: translate(-50%, -50%);
+        margin: 0 0 72px;
+        font-size: 150px;
+        font-weight: 900;
+        line-height: 1;
+        letter-spacing: 2px;
+    }
+
+    .start-buttons {
+        position: absolute;
+        left: 50%;
+        top: 1280px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 760px;
+        transform: translateX(-50%);
+        pointer-events: none;
+    }
+
+    .start-button {
+        width: 620px;
+        min-height: 112px;
+        margin: 0 0 28px;
+        border: 4px solid #ffffff;
+        border-radius: 999px;
+        background: transparent;
+        color: #ffffff;
+        font-size: 40px;
+        font-weight: 800;
+        cursor: pointer;
+        pointer-events: auto;
+    }
+
+    .loading-coordinate-layer {
+        z-index: 40;
+    }
+
+    .loading-overlay {
+        position: absolute;
+        left: var(--dom-frame-left, 0px);
+        top: var(--dom-frame-top, 0px);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: var(--dom-frame-width, 1080px);
+        height: var(--dom-frame-height, 1920px);
+        background: green;
+        color: #fff;
+        font-family: Arial, sans-serif;
+        pointer-events: auto;
+    }
+
+    .loading-title {
+        margin-bottom: 48px;
+        font-size: 64px;
+        font-weight: 800;
+        letter-spacing: 2px;
+    }
+
+    .loading-bar-track {
+        width: 560px;
+        height: 36px;
+        padding: 4px;
+        border: 4px solid #111111;
+        border-radius: 999px;
+        background: #ffffff;
+        overflow: hidden;
+    }
+
+    .loading-bar-fill {
+        width: 0;
+        height: 100%;
+        border-radius: 999px;
+        background: #111111;
+    }
+
+    .loading-percent {
+        margin-top: 24px;
+        font-size: 36px;
+        font-weight: 700;
     }
 
     .debug-status-panel {

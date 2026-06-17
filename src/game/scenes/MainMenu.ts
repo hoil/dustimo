@@ -26,7 +26,7 @@ export class MainMenu extends Scene {
     create() {
         useSafeAreaCamera(this);
 
-        this.createLogo();
+        // this.createLogo();
 
         EventBus.on(
             "debug-safe-area-changed",

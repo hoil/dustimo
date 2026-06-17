@@ -1,7 +1,7 @@
 import { Boot } from "./scenes/Boot";
+import { IntroLoadingScene } from "./scenes/IntroLoadingScene";
 import { MainMenu } from "./scenes/MainMenu";
 import { AUTO, Game, Scale } from "phaser";
-import { Preloader } from "./scenes/Preloader";
 
 // Find out more information about the Game Config at:
 // https://docs.phaser.io/api-documentation/typedef/types-core#gameconfig
@@ -10,12 +10,12 @@ const config: Phaser.Types.Core.GameConfig = {
     width: 1080,
     height: 1920,
     parent: "game-container",
-    backgroundColor: "#028af8",
+    backgroundColor: "#3232ff",
     scale: {
         mode: Scale.FIT,
         autoCenter: Scale.CENTER_BOTH,
     },
-    scene: [Boot, Preloader, MainMenu],
+    scene: [Boot, IntroLoadingScene, MainMenu],
 };
 
 const StartGame = (parent: string, width = 1080, height = 1920) => {

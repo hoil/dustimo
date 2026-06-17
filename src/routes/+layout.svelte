@@ -10,7 +10,7 @@
         height: 100vh;
         height: 100lvh;
         min-height: calc(100lvh + env(safe-area-inset-bottom, 0px));
-        background-color: #333;
+        background-color: #1a1918;
         overflow: hidden;
         touch-action: none;
         -webkit-text-size-adjust: 100%;
@@ -24,7 +24,7 @@
         margin: 0;
         padding: 0;
         color: rgba(255, 255, 255, 0.87);
-        background-color: #333;
+        background-color: #1a1918;
         font-family: Arial, Helvetica, sans-serif;
         overflow: hidden;
         overscroll-behavior: none;
