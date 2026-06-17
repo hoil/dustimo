@@ -16,6 +16,12 @@
         -webkit-text-size-adjust: 100%;
     }
 
+    @supports (-webkit-touch-callout: none) {
+        :global(html) {
+            height: -webkit-fill-available;
+        }
+    }
+
     :global(body) {
         position: fixed;
         inset: 0;
@@ -33,6 +39,13 @@
         user-select: none;
         -webkit-user-select: none;
         -webkit-touch-callout: none;
+    }
+
+    @supports (-webkit-touch-callout: none) {
+        :global(body) {
+            height: -webkit-fill-available;
+            min-height: -webkit-fill-available;
+        }
     }
 
     :global(*) {

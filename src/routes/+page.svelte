@@ -63,9 +63,9 @@
 
     const calculateGameFrame = () => {
 
-        const viewport = window.visualViewport;
-        const viewportWidth = Math.max(1, viewport?.width ?? window.innerWidth);
-        const viewportHeight = Math.max(1, viewport?.height ?? window.innerHeight);
+        const appBounds = appElement?.getBoundingClientRect();
+        const viewportWidth = Math.max(1, appBounds?.width ?? window.innerWidth);
+        const viewportHeight = Math.max(1, appBounds?.height ?? window.innerHeight);
         const viewportAspect = viewportWidth / viewportHeight;
         const gameAspect = Math.min(MAX_GAME_ASPECT, Math.max(MIN_GAME_ASPECT, viewportAspect));
         const safeAspect = SAFE_AREA_WIDTH / SAFE_AREA_HEIGHT;
@@ -355,6 +355,7 @@
         inset: 0;
         width: 100%;
         height: 100%;
+        min-height: -webkit-fill-available;
         overflow: hidden;
         display: flex;
         justify-content: center;
