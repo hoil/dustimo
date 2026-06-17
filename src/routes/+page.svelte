@@ -117,23 +117,47 @@
         const domFrameOffsetX = (gameWidth - SAFE_AREA_WIDTH) / 2;
         const domFrameOffsetY = (gameHeight - SAFE_AREA_HEIGHT) / 2;
         const safeAreaInsets = getViewportSafeAreaInsets();
-        const toLogicalInset = (value: number) => `${value / domCoordinateScale}px`;
+        const logicalSafeTop = safeAreaInsets.top / domCoordinateScale;
+        const logicalSafeRight = safeAreaInsets.right / domCoordinateScale;
+        const logicalSafeBottom = safeAreaInsets.bottom / domCoordinateScale;
+        const logicalSafeLeft = safeAreaInsets.left / domCoordinateScale;
+        const domFrameLeft = -domFrameOffsetX;
+        const domFrameTop = -domFrameOffsetY;
+        const domFrameRight = SAFE_AREA_WIDTH + domFrameOffsetX;
+        const domFrameBottom = SAFE_AREA_HEIGHT + domFrameOffsetY;
+        const domUiLeft = domFrameLeft + logicalSafeLeft;
+        const domUiTop = domFrameTop + logicalSafeTop;
+        const domUiRight = domFrameRight - logicalSafeRight;
+        const domUiBottom = domFrameBottom - logicalSafeBottom;
+        const domUiWidth = Math.max(0, domUiRight - domUiLeft);
+        const domUiHeight = Math.max(0, domUiBottom - domUiTop);
+        const domUiCenterX = domUiLeft + domUiWidth / 2;
+        const domUiCenterY = domUiTop + domUiHeight / 2;
+        const toLogicalPixelValue = (value: number) => `${value}px`;
 
         return {
             frameStyle: [
                 `width: ${roundedFrameWidth}px`,
                 `height: ${roundedFrameHeight}px`,
                 `--dom-coordinate-scale: ${domCoordinateScale}`,
-                `--dom-frame-left: ${-domFrameOffsetX}px`,
-                `--dom-frame-top: ${-domFrameOffsetY}px`,
-                `--dom-frame-right: ${SAFE_AREA_WIDTH + domFrameOffsetX}px`,
-                `--dom-frame-bottom: ${SAFE_AREA_HEIGHT + domFrameOffsetY}px`,
+                `--dom-frame-left: ${toLogicalPixelValue(domFrameLeft)}`,
+                `--dom-frame-top: ${toLogicalPixelValue(domFrameTop)}`,
+                `--dom-frame-right: ${toLogicalPixelValue(domFrameRight)}`,
+                `--dom-frame-bottom: ${toLogicalPixelValue(domFrameBottom)}`,
                 `--dom-frame-width: ${gameWidth}px`,
                 `--dom-frame-height: ${gameHeight}px`,
-                `--dom-safe-top: ${toLogicalInset(safeAreaInsets.top)}`,
-                `--dom-safe-right: ${toLogicalInset(safeAreaInsets.right)}`,
-                `--dom-safe-bottom: ${toLogicalInset(safeAreaInsets.bottom)}`,
-                `--dom-safe-left: ${toLogicalInset(safeAreaInsets.left)}`,
+                `--dom-safe-top: ${toLogicalPixelValue(logicalSafeTop)}`,
+                `--dom-safe-right: ${toLogicalPixelValue(logicalSafeRight)}`,
+                `--dom-safe-bottom: ${toLogicalPixelValue(logicalSafeBottom)}`,
+                `--dom-safe-left: ${toLogicalPixelValue(logicalSafeLeft)}`,
+                `--dom-ui-left: ${toLogicalPixelValue(domUiLeft)}`,
+                `--dom-ui-top: ${toLogicalPixelValue(domUiTop)}`,
+                `--dom-ui-right: ${toLogicalPixelValue(domUiRight)}`,
+                `--dom-ui-bottom: ${toLogicalPixelValue(domUiBottom)}`,
+                `--dom-ui-width: ${toLogicalPixelValue(domUiWidth)}`,
+                `--dom-ui-height: ${toLogicalPixelValue(domUiHeight)}`,
+                `--dom-ui-center-x: ${toLogicalPixelValue(domUiCenterX)}`,
+                `--dom-ui-center-y: ${toLogicalPixelValue(domUiCenterY)}`,
                 `--ui-safe-padding: ${toPixelValue(frameWidth * 0.041)}`,
                 `--ui-panel-padding-y: ${toPixelValue(frameWidth * 0.026)}`,
                 `--ui-panel-padding-x: ${toPixelValue(frameWidth * 0.031)}`,
@@ -388,8 +412,8 @@
 
     .debug-status-panel {
         position: absolute;
-        left: 50%;
-        top: calc(var(--dom-frame-top) + var(--dom-safe-top) + 32px);
+        left: var(--dom-ui-center-x);
+        top: calc(var(--dom-ui-top) + 32px);
         z-index: 3;
         transform: translateX(-50%);
         min-width: 360px;
@@ -407,8 +431,8 @@
 
     .debug-open-button {
         position: absolute;
-        left: calc(var(--dom-frame-left) + var(--dom-safe-left));
-        top: 50%;
+        left: var(--dom-ui-left);
+        top: var(--dom-ui-center-y);
         z-index: 1;
         transform: translateY(-50%);
         margin: 0;
@@ -425,13 +449,13 @@
 
     .debug-popup {
         position: absolute;
-        left: calc(var(--dom-frame-left) + var(--dom-safe-left) + 60px);
-        top: calc(var(--dom-frame-top) + var(--dom-safe-top) + 60px);
+        left: calc(var(--dom-ui-left) + 60px);
+        top: calc(var(--dom-ui-top) + 60px);
         z-index: 2;
         display: flex;
         flex-direction: column;
-        width: calc(var(--dom-frame-width) - var(--dom-safe-left) - var(--dom-safe-right) - 120px);
-        height: calc(var(--dom-frame-height) - var(--dom-safe-top) - var(--dom-safe-bottom) - 120px);
+        width: calc(var(--dom-ui-width) - 120px);
+        height: calc(var(--dom-ui-height) - 120px);
         border: 4px solid rgba(255, 255, 255, 0.9);
         border-radius: 16px;
         background: rgba(0, 0, 0, 0.88);
