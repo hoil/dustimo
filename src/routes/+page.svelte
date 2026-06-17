@@ -352,10 +352,10 @@
         --safe-area-left: env(safe-area-inset-left, 0px);
 
         position: fixed;
-        inset: 0;
-        width: 100vw;
-        height: 100vh;
-        height: 100lvh;
+        left: 0;
+        top: 0;
+        right: 0;
+        bottom: calc(-1 * var(--safe-area-bottom));
         overflow: hidden;
         display: flex;
         justify-content: center;
