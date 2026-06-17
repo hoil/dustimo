@@ -15,6 +15,8 @@ export class MainMenu extends Scene {
     verticalLogo!: GameObjects.Image;
     logoTween: Phaser.Tweens.Tween | null = null;
     logoMoveCallback: LogoPositionCallback | null = null;
+    centerX = 0;
+    centerY = 0;
 
     constructor() {
         super("MainMenu");
@@ -24,10 +26,47 @@ export class MainMenu extends Scene {
         const centerX = this.scale.width / 2;
         const centerY = this.scale.height / 2;
 
+        this.centerX = centerX;
+        this.centerY = centerY;
+
         this.createResolutionGuide(centerX, centerY);
         this.createSafeAreaLogoGuides(centerX, centerY);
 
+        this.scale.on("resize", this.handleResize, this);
+        this.events.once("shutdown", () => {
+            this.scale.off("resize", this.handleResize, this);
+        });
+
         EventBus.emit("current-scene-ready", this);
+    }
+
+    handleResize() {
+        const centerX = this.scale.width / 2;
+        const centerY = this.scale.height / 2;
+        const deltaX = centerX - this.centerX;
+        const deltaY = centerY - this.centerY;
+
+        if (deltaX === 0 && deltaY === 0) {
+            return;
+        }
+
+        this.children.each((child) => {
+            const positionedChild = child as GameObjects.GameObject & {
+                x?: number;
+                y?: number;
+            };
+
+            if (typeof positionedChild.x === "number") {
+                positionedChild.x += deltaX;
+            }
+
+            if (typeof positionedChild.y === "number") {
+                positionedChild.y += deltaY;
+            }
+        });
+
+        this.centerX = centerX;
+        this.centerY = centerY;
     }
 
     createSafeAreaLogoGuides(centerX: number, centerY: number) {

@@ -25,7 +25,7 @@
     const spritePosition = { x: 0, y: 0 };
     let spriteCount = 0;
 
-    const calculateInitialGameFrame = () => {
+    const calculateGameFrame = () => {
 
         const viewport = window.visualViewport;
         const viewportWidth = Math.max(1, viewport?.width ?? window.innerWidth);
@@ -78,13 +78,56 @@
 
     }
 
+    const updateGameFrame = () => {
+
+        const gameFrame = calculateGameFrame();
+
+        gameFrameStyle = gameFrame.frameStyle;
+        gameSize = gameFrame.gameSize;
+        isGameFrameReady = true;
+
+    };
+
     onMount(() => {
 
-        const initialGameFrame = calculateInitialGameFrame();
+        let animationFrameId: number | null = null;
 
-        gameFrameStyle = initialGameFrame.frameStyle;
-        gameSize = initialGameFrame.gameSize;
-        isGameFrameReady = true;
+        const scheduleGameFrameUpdate = () => {
+
+            if (animationFrameId !== null)
+            {
+
+                cancelAnimationFrame(animationFrameId);
+
+            }
+
+            animationFrameId = requestAnimationFrame(() => {
+
+                animationFrameId = null;
+                updateGameFrame();
+
+            });
+
+        };
+
+        updateGameFrame();
+
+        window.addEventListener("resize", scheduleGameFrameUpdate);
+        window.visualViewport?.addEventListener("resize", scheduleGameFrameUpdate);
+
+        return () => {
+
+            if (animationFrameId !== null)
+            {
+
+                cancelAnimationFrame(animationFrameId);
+
+            }
+
+            window.removeEventListener("resize", scheduleGameFrameUpdate);
+            window.visualViewport?.removeEventListener("resize", scheduleGameFrameUpdate);
+
+        };
 
     });
 
