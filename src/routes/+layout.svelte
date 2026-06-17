@@ -8,6 +8,9 @@
     :global(html) {
         position: fixed;
         inset: 0;
+        width: 100vw;
+        height: 100vh;
+        height: 100lvh;
         background-color: #333;
         overflow: hidden;
         touch-action: none;
@@ -17,6 +20,9 @@
     :global(body) {
         position: fixed;
         inset: 0;
+        width: 100vw;
+        height: 100vh;
+        height: 100lvh;
         margin: 0;
         padding: 0;
         color: rgba(255, 255, 255, 0.87);

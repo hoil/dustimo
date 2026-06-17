@@ -353,6 +353,9 @@
 
         position: fixed;
         inset: 0;
+        width: 100vw;
+        height: 100vh;
+        height: 100lvh;
         overflow: hidden;
         display: flex;
         justify-content: center;
