@@ -187,6 +187,15 @@
 
     const updateGameFrame = () => {
 
+        const bounds = appElement?.getBoundingClientRect();
+
+        if (!bounds || (bounds.width === 0 && bounds.height === 0))
+        {
+
+            return;
+
+        }
+
         const gameFrame = calculateGameFrame();
 
         gameFrameStyle = gameFrame.frameStyle;
@@ -265,7 +274,12 @@
 
         };
 
-        updateGameFrame();
+        scheduleGameFrameUpdate();
+
+        const resizeObserver = new ResizeObserver(scheduleGameFrameUpdate);
+
+        resizeObserver.observe(appElement);
+
         fpsAnimationFrameId = requestAnimationFrame(updateFpsFrameCount);
         debugUpdateIntervalId = window.setInterval(updateDebugStatus, 500);
         EventBus.on("game-loading-progress", handleGameLoadingProgress);
@@ -298,6 +312,7 @@
 
             window.removeEventListener("resize", scheduleGameFrameUpdate);
             window.visualViewport?.removeEventListener("resize", scheduleGameFrameUpdate);
+            resizeObserver.disconnect();
             EventBus.off("game-loading-progress", handleGameLoadingProgress);
 
         };
