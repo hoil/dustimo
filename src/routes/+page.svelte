@@ -4,6 +4,7 @@
     import type { Scene } from "phaser";
     import PhaserGame from "../PhaserGame.svelte";
     import { EventBus } from "../game/EventBus";
+    import { clearGameStorage, getOrCreateGameUid } from "../lib/gameStorage";
     import {
         FULL_AREA_HEIGHT,
         FULL_AREA_WIDTH,
@@ -32,12 +33,12 @@
     let isMemoryDebugEnabled = false;
     let isSafeAreaDebugEnabled = false;
     let isFullAreaDebugEnabled = false;
+    let isAccountResetConfirmOpen = false;
     let hasGameStarted = false;
     let isLoadingOverlayVisible = false;
     let loadingProgress = 0;
     let debugFpsText = "FPS: -";
     let debugMemoryText = "Memory: -";
-    const mockDebugItems = Array.from({ length: 10 }, (_, index) => `mock 항목 ${index + 1}`);
     $: isDebugStatusPanelVisible = isFpsDebugEnabled || isMemoryDebugEnabled;
     $: loadingPercent = Math.round(loadingProgress * 100);
     $: loadingBarWidth = `${loadingPercent}%`;
@@ -218,6 +219,13 @@
 
     };
 
+    const resetGameAccount = () => {
+
+        clearGameStorage();
+        window.location.reload();
+
+    };
+
     onMount(() => {
 
         let animationFrameId: number | null = null;
@@ -274,6 +282,7 @@
 
         };
 
+        getOrCreateGameUid();
         scheduleGameFrameUpdate();
 
         const resizeObserver = new ResizeObserver(scheduleGameFrameUpdate);
@@ -398,12 +407,42 @@
                                 />
                                 <span>full area 보기</span>
                             </label>
-                            {#each mockDebugItems as item}
-                                <label class="debug-checkbox-item">
-                                    <input type="checkbox" />
-                                    <span>{item}</span>
-                                </label>
-                            {/each}
+                        </div>
+
+                        <div class="debug-popup-footer">
+                            <button
+                                class="account-reset-button"
+                                type="button"
+                                on:click={() => isAccountResetConfirmOpen = true}
+                            >
+                                계정초기화
+                            </button>
+                        </div>
+                    </div>
+                {/if}
+
+                {#if isAccountResetConfirmOpen}
+                    <div class="account-reset-confirm-backdrop" role="presentation">
+                        <div class="account-reset-confirm-popup" role="dialog" aria-label="계정초기화 확인">
+                            <div class="account-reset-confirm-message">
+                                계정에 대한 모든 정보가 삭제됩니다. 정말 삭제하시겠습니까?
+                            </div>
+                            <div class="account-reset-confirm-actions">
+                                <button
+                                    class="account-reset-confirm-button"
+                                    type="button"
+                                    on:click={() => isAccountResetConfirmOpen = false}
+                                >
+                                    아니요
+                                </button>
+                                <button
+                                    class="account-reset-confirm-button account-reset-confirm-danger-button"
+                                    type="button"
+                                    on:click={resetGameAccount}
+                                >
+                                    예
+                                </button>
+                            </div>
                         </div>
                     </div>
                 {/if}
@@ -815,9 +854,83 @@
         flex: 1 1 auto;
         min-height: 0;
         overflow-y: auto;
-        padding: 16px 24px 24px;
+        padding: 16px 24px;
         overscroll-behavior: contain;
         -webkit-overflow-scrolling: touch;
+    }
+
+    .debug-popup-footer {
+        flex: 0 0 auto;
+        padding: 20px 24px 24px;
+        border-top: 2px solid rgba(255, 255, 255, 0.25);
+    }
+
+    .account-reset-button {
+        width: 100%;
+        padding: 22px 24px;
+        border: 3px solid #ff5b5b;
+        border-radius: 14px;
+        background: rgba(255, 91, 91, 0.16);
+        color: #ffdddd;
+        font-size: 36px;
+        font-weight: 800;
+        cursor: pointer;
+        pointer-events: auto;
+    }
+
+    .account-reset-confirm-backdrop {
+        position: absolute;
+        left: var(--dom-ui-left);
+        top: var(--dom-ui-top);
+        z-index: 10;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: var(--dom-ui-width);
+        height: var(--dom-ui-height);
+        background: rgba(0, 0, 0, 0.45);
+        pointer-events: auto;
+    }
+
+    .account-reset-confirm-popup {
+        width: min(760px, calc(var(--dom-ui-width) - 120px));
+        padding: 36px 32px 28px;
+        border: 4px solid rgba(255, 255, 255, 0.92);
+        border-radius: 22px;
+        background: rgba(0, 0, 0, 0.9);
+        color: #ffffff;
+        text-align: center;
+    }
+
+    .account-reset-confirm-message {
+        font-size: 34px;
+        font-weight: 800;
+        line-height: 1.35;
+        word-break: keep-all;
+    }
+
+    .account-reset-confirm-actions {
+        display: flex;
+        gap: 18px;
+        margin-top: 34px;
+    }
+
+    .account-reset-confirm-button {
+        flex: 1 1 0;
+        padding: 20px 12px;
+        border: 3px solid rgba(255, 255, 255, 0.65);
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.12);
+        color: #ffffff;
+        font-size: 32px;
+        font-weight: 800;
+        cursor: pointer;
+    }
+
+    .account-reset-confirm-danger-button {
+        border-color: #ff5b5b;
+        background: rgba(255, 91, 91, 0.22);
+        color: #ffdddd;
     }
 
     .debug-checkbox-item {

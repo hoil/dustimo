@@ -1,6 +1,7 @@
 import { Math as PhaserMath, type GameObjects, Scene } from "phaser";
 
 import { EventBus } from "../EventBus";
+import { getOrCreateGameUid } from "../../lib/gameStorage";
 import {
     MAX_GAME_ASPECT,
     MIN_GAME_ASPECT,
@@ -27,6 +28,7 @@ export class MainMenu extends Scene {
         useSafeAreaCamera(this);
 
         // this.createLogo();
+        this.createUidText();
 
         EventBus.on(
             "debug-safe-area-changed",
@@ -42,6 +44,21 @@ export class MainMenu extends Scene {
         });
 
         EventBus.emit("current-scene-ready", this);
+    }
+
+    createUidText() {
+        const uid = getOrCreateGameUid();
+
+        this.add
+            .text(40, 40, `내 uid: ${uid}`, {
+                color: "#ffffff",
+                fontFamily: "Arial, sans-serif",
+                fontSize: "30px",
+                stroke: "#000000",
+                strokeThickness: 5,
+            })
+            .setOrigin(0, 0)
+            .setDepth(100);
     }
 
     createLogo() {
