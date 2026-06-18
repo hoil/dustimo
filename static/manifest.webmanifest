@@ -1,6 +1,6 @@
 {
-    "name": "Dustimo",
-    "short_name": "Dustimo",
+    "name": "콩생역전",
+    "short_name": "콩생역전",
     "start_url": "./",
     "scope": "./",
     "display": "fullscreen",
@@ -9,13 +9,13 @@
     "theme_color": "#100f0f",
     "icons": [
         {
-            "src": "icons/icon-192.png",
+            "src": "assets/square/android-chrome-192x192.png",
             "sizes": "192x192",
             "type": "image/png",
             "purpose": "any maskable"
         },
         {
-            "src": "icons/icon-512.png",
+            "src": "assets/square/android-chrome-512x512.png",
             "sizes": "512x512",
             "type": "image/png",
             "purpose": "any maskable"

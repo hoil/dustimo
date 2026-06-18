@@ -214,7 +214,7 @@
 
     const startLoginPlay = () => {
 
-        // TODO: 로그인 플로우 연결 후 교체
+        window.alert("준비 중...");
 
     };
 
@@ -414,16 +414,18 @@
             <div class="start-frame-background"></div>
             <div class="dom-coordinate-layer start-coordinate-layer">
                 <div class="start-content">
-                    <img class="start-logo" src="/assets/logo.png" alt="Dustimo" width="1000" height="667" />
+                    <img class="start-logo" src="/assets/logo.png" alt="logo" width="1000" height="750" />
+                    <img class="start-character" src="/assets/character.png" alt="" width="600" height="600" aria-hidden="true" />
                     <div class="start-buttons">
                         <button class="start-button" type="button" on:click={startGuestPlay}>
-                            바로 플레이
+                            <span class="start-button-label">바로 플레이</span>
                         </button>
-                        <button class="start-button" type="button" on:click={startLoginPlay}>
-                            로그인하고 플레이
+                        <button class="start-button start-button-secondary" type="button" on:click={startLoginPlay}>
+                            <span class="start-button-label">로그인하고 플레이</span>
                         </button>
                     </div>
                 </div>
+                <div class="start-copyright">© 2026 Twile. All Rights Reserved.</div>
             </div>
         {/if}
 
@@ -443,6 +445,22 @@
 </div>
 
 <style>
+    @font-face {
+        font-family: "TmoneyRoundWind";
+        src: url("/assets/fonts/TmoneyRoundWind/TmoneyRoundWindRegular.woff") format("woff");
+        font-weight: 400;
+        font-style: normal;
+        font-display: swap;
+    }
+
+    @font-face {
+        font-family: "TmoneyRoundWind";
+        src: url("/assets/fonts/TmoneyRoundWind/TmoneyRoundWindExtraBold.woff") format("woff");
+        font-weight: 800;
+        font-style: normal;
+        font-display: swap;
+    }
+
     :global(*) {
         -webkit-tap-highlight-color: transparent;
     }
@@ -508,7 +526,10 @@
         position: absolute;
         inset: 0;
         z-index: 39;
-        background: #100f0f;
+        background-image: url("/assets/bg.png");
+        background-position: center;
+        background-size: cover;
+        background-repeat: no-repeat;
         pointer-events: auto;
     }
 
@@ -520,8 +541,10 @@
         position: absolute;
         inset: 0;
         z-index: 25;
-        /* background: #05a84e; */
-        background: linear-gradient(0deg, rgb(173, 206, 10) 0%,rgb(183, 240, 118)) 100%;
+        background-image: url("/assets/bg.png");
+        background-position: center;
+        background-size: cover;
+        background-repeat: no-repeat;
         pointer-events: none;
     }
 
@@ -537,8 +560,9 @@
 
     .start-logo {
         position: absolute;
+        z-index: 2;
         left: 50%;
-        top: 650px;
+        top: 900px;
         transform: translate(-50%, -50%);
         display: block;
         animation: start-logo-floating 3.6s ease-in-out infinite;
@@ -552,14 +576,39 @@
         }
 
         50% {
-            transform: translate(-50%, calc(-50% - 26px));
+            transform: translate(-50%, calc(-50% - 50px));
+        }
+    }
+
+    .start-character {
+        position: absolute;
+        left: calc(50%);
+        top: 500px;
+        z-index: 0;
+        width: 520px;
+        height: 520px;
+        transform: translate(-50%, -50%);
+        display: block;
+        animation: start-character-floating 3.2s ease-in-out infinite;
+        will-change: transform;
+        pointer-events: none;
+    }
+
+    @keyframes start-character-floating {
+        0%,
+        100% {
+            transform: translate(-50%, -50%);
+        }
+
+        50% {
+            transform: translate(-50%, calc(-50% - 20px));
         }
     }
 
     .start-buttons {
         position: absolute;
         left: 50%;
-        top: 1280px;
+        top: 1200px;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -569,17 +618,73 @@
     }
 
     .start-button {
+        position: relative;
+        isolation: isolate;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         width: 620px;
-        min-height: 112px;
-        margin: 0 0 28px;
-        border: 0px solid #141414;
-        border-radius: 24px;
-        background: #ffffff73;
-        color: #141414;
-        font-size: 40px;
+        height: 191px;
+        margin: 0 0 0px;
+        padding: 0 48px;
+        border: 0;
+        background-color: transparent;
+        color: #ffffff;
+        font-size: 50px;
         font-weight: 800;
+        line-height: 1;
         cursor: pointer;
         pointer-events: auto;
+        paint-order: stroke fill;
+        -webkit-text-stroke: 12px #1b3a02;
+    }
+
+    .start-button::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        background-image: url("/assets/button.png");
+        background-position: center;
+        background-size: 100% 100%;
+        background-repeat: no-repeat;
+        pointer-events: none;
+    }
+
+    .start-button-secondary {
+        -webkit-text-stroke: 12px rgb(73, 47, 0);
+    }
+
+    .start-button-secondary::before {
+        filter: sepia(1) saturate(3.4) hue-rotate(350deg) brightness(1.08);
+    }
+
+    .start-button-label {
+        position: relative;
+        z-index: 1;
+        font-family: "TmoneyRoundWind", sans-serif;
+        font-weight: 400;
+    }
+
+    .start-copyright {
+        position: absolute;
+        left: var(--dom-frame-left, 0px);
+        top: calc(var(--dom-frame-bottom, 1920px) - var(--dom-safe-bottom, 0px) - 120px);
+        width: var(--dom-frame-width, 1080px);
+        color: #ffffff;
+        font-size: 32px;
+        font-weight: 800;
+        line-height: 1;
+        text-align: center;
+        /* text-shadow:
+            -2px -2px 0 #000000,
+            2px -2px 0 #000000,
+            -2px 2px 0 #000000,
+            2px 2px 0 #000000,
+            0 3px 2px rgba(0, 0, 0, 1.55); */
+        -webkit-text-stroke: 7px black; /* 두께와 색상 지정 */
+        paint-order: stroke fill;
+        pointer-events: none;
     }
 
     .loading-coordinate-layer {
@@ -596,8 +701,8 @@
         justify-content: center;
         width: var(--dom-frame-width, 1080px);
         height: var(--dom-frame-height, 1920px);
-        background: green;
-        color: #fff;
+        background: transparent;
+        color: #000;
         font-family: Arial, sans-serif;
         pointer-events: auto;
     }

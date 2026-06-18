@@ -1,5 +1,5 @@
 <svelte:head>
-    <title>Dustimo</title>
+    <title>콩생역전</title>
 </svelte:head>
 
 <slot />
