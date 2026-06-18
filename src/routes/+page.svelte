@@ -399,7 +399,7 @@
             <div class="start-frame-background"></div>
             <div class="dom-coordinate-layer start-coordinate-layer">
                 <div class="start-content">
-                    <h1 class="start-title">Dustimo</h1>
+                    <img class="start-logo" src="/assets/logo.png" alt="Dustimo" />
                     <div class="start-buttons">
                         <button class="start-button" type="button" on:click={startGuestPlay}>
                             바로 플레이
@@ -428,6 +428,24 @@
 </div>
 
 <style>
+    :global(*) {
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    :global(*:focus),
+    :global(*:focus-visible),
+    :global(*:active) {
+        outline: none;
+        box-shadow: none;
+    }
+
+    :global(button) {
+        -webkit-tap-highlight-color: transparent;
+        -webkit-appearance: none;
+        appearance: none;
+        outline: none;
+    }
+
     #app {
         --safe-area-top: env(safe-area-inset-top, 0px);
         --safe-area-right: env(safe-area-inset-right, 0px);
@@ -445,7 +463,8 @@
         display: flex;
         justify-content: center;
         align-items: center;
-        background: #cdbfff;
+        /* background: #cdbfff; */
+        background: #fff;
     }
 
     .game-frame {
@@ -454,8 +473,8 @@
         width: 100%;
         height: 100%;
         overflow: hidden;
-        background: #ff86fb;
-        background: #100f0f;
+        /* background: #ff86fb; */
+        background: #fff;
     }
 
     .dom-coordinate-layer {
@@ -486,7 +505,8 @@
         position: absolute;
         inset: 0;
         z-index: 25;
-        background: red;
+        /* background: #05a84e; */
+        background: linear-gradient(0deg, rgb(173, 206, 10) 0%,rgb(183, 240, 118)) 100%;
         pointer-events: none;
     }
 
@@ -500,16 +520,25 @@
         pointer-events: none;
     }
 
-    .start-title {
+    .start-logo {
         position: absolute;
         left: 50%;
-        top: 500px;
+        top: 650px;
         transform: translate(-50%, -50%);
-        margin: 0 0 72px;
-        font-size: 150px;
-        font-weight: 900;
-        line-height: 1;
-        letter-spacing: 2px;
+        display: block;
+        animation: start-logo-floating 3.6s ease-in-out infinite;
+        will-change: transform;
+    }
+
+    @keyframes start-logo-floating {
+        0%,
+        100% {
+            transform: translate(-50%, -50%);
+        }
+
+        50% {
+            transform: translate(-50%, calc(-50% - 26px));
+        }
     }
 
     .start-buttons {
@@ -528,10 +557,10 @@
         width: 620px;
         min-height: 112px;
         margin: 0 0 28px;
-        border: 4px solid #ffffff;
-        border-radius: 999px;
-        background: transparent;
-        color: #ffffff;
+        border: 0px solid #141414;
+        border-radius: 24px;
+        background: #ffffff73;
+        color: #141414;
         font-size: 40px;
         font-weight: 800;
         cursor: pointer;
