@@ -414,7 +414,7 @@
             <div class="start-frame-background"></div>
             <div class="dom-coordinate-layer start-coordinate-layer">
                 <div class="start-content">
-                    <img class="start-logo" src="/assets/logo.png" alt="Dustimo" />
+                    <img class="start-logo" src="/assets/logo.png" alt="Dustimo" width="1000" height="667" />
                     <div class="start-buttons">
                         <button class="start-button" type="button" on:click={startGuestPlay}>
                             바로 플레이
