@@ -2,7 +2,7 @@
 
     import { onMount } from "svelte";
     import type { Scene } from "phaser";
-    import PhaserGame from "../PhaserGame.svelte";
+    import PhaserGame, { type TPhaserRef } from "../PhaserGame.svelte";
     import { EventBus } from "../game/EventBus";
     import {
         clearGameStorage,
@@ -29,13 +29,81 @@
         memory?: PerformanceMemory;
     };
 
+    type MainTabKey = "roster" | "farm" | "battle" | "plaza" | "shop";
+
     const bottomMenuItems = [
-        { label: "동료", sceneKey: "CompanionScene" },
-        { label: "재배", sceneKey: "MainMenu" },
-        { label: "전투", sceneKey: "BattleScene" },
-        { label: "광장", sceneKey: "PlazaScene" },
-        { label: "상점", sceneKey: "ShopScene" }
+        { label: "동료", tabKey: "roster" },
+        { label: "재배", tabKey: "farm" },
+        { label: "전투", tabKey: "battle" },
+        { label: "광장", tabKey: "plaza" },
+        { label: "상점", tabKey: "shop" }
+    ] satisfies { label: string; tabKey: MainTabKey }[];
+
+    const mainTabLabels: Record<MainTabKey, string> = {
+        roster: "동료",
+        farm: "재배",
+        battle: "전투",
+        plaza: "광장",
+        shop: "상점"
+    };
+
+    const tabSceneKeys: Record<MainTabKey, string> = {
+        roster: "RosterScene",
+        farm: "FarmScene",
+        battle: "BattleScene",
+        plaza: "PlazaScene",
+        shop: "ShopScene"
+    };
+
+    const defaultReturnTab: MainTabKey = "farm";
+    const shopTabKey: MainTabKey = "shop";
+    const nonShopTabKeys: MainTabKey[] = [
+        "roster",
+        "farm",
+        "battle",
+        "plaza"
     ];
+
+    const isNonShopTabKey = (tabKey: MainTabKey) => {
+
+        return nonShopTabKeys.includes(tabKey);
+
+    };
+
+    const getTabLabel = (tabKey: MainTabKey) => {
+
+        return mainTabLabels[tabKey];
+
+    };
+
+    const getReturnTabLabel = () => {
+
+        return getTabLabel(lastActiveNonShopTab);
+
+    };
+
+    const getTabSceneKey = (tabKey: MainTabKey) => {
+
+        return tabSceneKeys[tabKey];
+
+    };
+
+    let activeMainTab: MainTabKey = "farm";
+    let lastActiveNonShopTab: MainTabKey = defaultReturnTab;
+    let phaserRef: TPhaserRef = {
+        game: null,
+        scene: null
+    };
+
+    $: isShopTabActive = activeMainTab === shopTabKey;
+    $: returnTabLabel = getReturnTabLabel();
+    $: if (isNonShopTabKey(activeMainTab))
+    {
+
+        lastActiveNonShopTab = activeMainTab;
+
+    }
+
     const tutorialMessage = "안녕하세요! 저는 튜토리얼콩이에요. 튜토리얼 대본을 완성하면 다시 돌아올게요. 안녕히계세요!";
     const tutorialTypingIntervalMs = 80;
 
@@ -412,9 +480,39 @@
 
     };
 
-    const selectBottomMenuScene = (sceneKey: string) => {
+    const selectMainTab = (tabKey: MainTabKey) => {
 
-        EventBus.emit("bottom-menu-scene-selected", sceneKey);
+        if (tabKey === shopTabKey && activeMainTab !== shopTabKey)
+        {
+
+            lastActiveNonShopTab = activeMainTab;
+
+        }
+
+        activeMainTab = tabKey;
+        syncPhaserSceneWithTab(tabKey);
+
+    };
+
+    const returnFromShopTab = () => {
+
+        selectMainTab(lastActiveNonShopTab);
+
+    };
+
+    const syncPhaserSceneWithTab = (tabKey: MainTabKey) => {
+
+        const targetSceneKey = getTabSceneKey(tabKey);
+        const currentScene = phaserRef.scene;
+
+        if (!currentScene || currentScene.scene.key === targetSceneKey)
+        {
+
+            return;
+
+        }
+
+        currentScene.scene.start(targetSceneKey);
 
     };
 
@@ -573,33 +671,48 @@
     <div class="game-frame" style={gameFrameStyle}>
         {#if isGameFrameReady && hasGameStarted}
             <PhaserGame
+                bind:phaserRef
                 currentActiveScene={currentScene}
                 gameWidth={gameSize.width}
                 gameHeight={gameSize.height}
             />
 
             <div class="dom-coordinate-layer">
-                <nav class="bottom-menu" aria-label="하단 메뉴">
-                    <img
-                        class="bottom-menu-frame"
-                        src="/assets/common/bottomBar.png"
-                        alt=""
-                        width="1440"
-                        height="236"
-                        aria-hidden="true"
-                    />
-                    <div class="bottom-menu-buttons">
-                        {#each bottomMenuItems as menuItem}
-                            <button
-                                class="bottom-menu-button"
-                                type="button"
-                                on:click={() => selectBottomMenuScene(menuItem.sceneKey)}
-                            >
-                                {menuItem.label}
-                            </button>
-                        {/each}
-                    </div>
-                </nav>
+                {#if !isShopTabActive}
+                    <nav class="bottom-menu" aria-label="하단 메뉴">
+                        <img
+                            class="bottom-menu-frame"
+                            src="/assets/common/bottomBar.png"
+                            alt=""
+                            width="1440"
+                            height="236"
+                            aria-hidden="true"
+                        />
+                        <div class="bottom-menu-buttons">
+                            {#each bottomMenuItems as menuItem}
+                                <button
+                                    class={`bottom-menu-button ${activeMainTab === menuItem.tabKey ? "bottom-menu-button-active" : ""}`}
+                                    type="button"
+                                    aria-pressed={activeMainTab === menuItem.tabKey}
+                                    on:click={() => selectMainTab(menuItem.tabKey)}
+                                >
+                                    {menuItem.label}
+                                </button>
+                            {/each}
+                        </div>
+                    </nav>
+                {/if}
+
+                {#if isShopTabActive}
+                    <button
+                        class="shop-return-button"
+                        type="button"
+                        aria-label={`${returnTabLabel} 탭으로 돌아가기`}
+                        on:click={returnFromShopTab}
+                    >
+                        돌아가기
+                    </button>
+                {/if}
 
                 {#if isDebugStatusPanelVisible}
                     <div class="debug-status-panel" aria-live="polite">
@@ -1082,6 +1195,34 @@
         line-height: 1;
         text-align: center;
         /* text-shadow: 0 2px 4px rgba(0, 0, 0, 0.55); */
+        cursor: pointer;
+        pointer-events: auto;
+        touch-action: manipulation;
+    }
+
+    .bottom-menu-button-active {
+        color: #ffe6ba;
+        -webkit-text-stroke-color: #5b3900;
+        filter: drop-shadow(0 4px 4px rgba(0, 0, 0, 0.25));
+    }
+
+    .shop-return-button {
+        position: absolute;
+        right: calc(1080px - var(--dom-ui-right, 1080px) + 48px);
+        bottom: calc(1920px - var(--dom-ui-bottom, 1920px) + 48px);
+        z-index: 2;
+        min-width: 220px;
+        min-height: 92px;
+        padding: 0 42px;
+        border: 6px solid #8e5c04;
+        border-radius: 999px;
+        background: rgba(255, 251, 231, 0.96);
+        box-shadow: 0 14px 24px rgba(0, 0, 0, 0.22);
+        color: #4c3300;
+        font-family: "TmoneyRoundWind", sans-serif;
+        font-size: 34px;
+        font-weight: 800;
+        line-height: 1;
         cursor: pointer;
         pointer-events: auto;
         touch-action: manipulation;

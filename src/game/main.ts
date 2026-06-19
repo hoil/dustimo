@@ -1,10 +1,10 @@
 import { Boot } from "./scenes/Boot";
+import { FarmScene } from "./scenes/FarmScene";
 import { IntroLoadingScene } from "./scenes/IntroLoadingScene";
-import { MainMenu } from "./scenes/MainMenu";
 import {
     BattleScene,
-    CompanionScene,
     PlazaScene,
+    RosterScene,
     ShopScene,
 } from "./scenes/SolidColorScene";
 import { AUTO, Game, Scale } from "phaser";
@@ -24,8 +24,8 @@ const config: Phaser.Types.Core.GameConfig = {
     scene: [
         Boot,
         IntroLoadingScene,
-        MainMenu,
-        CompanionScene,
+        FarmScene,
+        RosterScene,
         BattleScene,
         PlazaScene,
         ShopScene,

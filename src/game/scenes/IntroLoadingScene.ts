@@ -24,7 +24,7 @@ export class IntroLoadingScene extends Scene {
         }
 
         EventBus.emit("game-loading-progress", 1);
-        this.scene.start("MainMenu");
+        this.scene.start("FarmScene");
     }
 
     private tweenLoadingProgress(targetProgress: number) {
@@ -35,12 +35,15 @@ export class IntroLoadingScene extends Scene {
                 duration: INTRO_LOADING_STEP_DURATION,
                 ease: "Sine.easeInOut",
                 onUpdate: () => {
-                    EventBus.emit("game-loading-progress", this.loadingProgress.value);
+                    EventBus.emit(
+                        "game-loading-progress",
+                        this.loadingProgress.value
+                    );
                 },
                 onComplete: () => {
                     EventBus.emit("game-loading-progress", targetProgress);
                     resolve();
-                }
+                },
             });
         });
     }

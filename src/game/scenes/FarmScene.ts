@@ -9,18 +9,17 @@ import {
     useSafeAreaCamera,
     useSafeAreaDebugOverlay,
 } from "../SafeArea";
-import { setupBottomMenuSceneNavigation } from "./menuSceneNavigation";
 
 type LogoPositionCallback = ({ x, y }: { x: number; y: number }) => void;
 
-export class MainMenu extends Scene {
+export class FarmScene extends Scene {
     fieldBackground!: GameObjects.Image;
     horizontalLogo!: GameObjects.Image;
     logoTween: Phaser.Tweens.Tween | null = null;
     logoMoveCallback: LogoPositionCallback | null = null;
 
     constructor() {
-        super("MainMenu");
+        super("FarmScene");
     }
 
     preload() {
@@ -30,7 +29,6 @@ export class MainMenu extends Scene {
     create() {
         useSafeAreaCamera(this);
         this.createFieldBackground();
-        setupBottomMenuSceneNavigation(this);
         useSafeAreaDebugOverlay(this);
 
         // this.createLogo();
