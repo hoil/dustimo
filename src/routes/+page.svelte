@@ -4,7 +4,12 @@
     import type { Scene } from "phaser";
     import PhaserGame from "../PhaserGame.svelte";
     import { EventBus } from "../game/EventBus";
-    import { clearGameStorage, getOrCreateGameUid } from "../lib/gameStorage";
+    import {
+        clearGameStorage,
+        getOrCreateGameUid,
+        hasSeenGameTutorial,
+        markGameTutorialSeen
+    } from "../lib/gameStorage";
     import {
         FULL_AREA_HEIGHT,
         FULL_AREA_WIDTH,
@@ -31,6 +36,8 @@
         { label: "광장", sceneKey: "PlazaScene" },
         { label: "상점", sceneKey: "ShopScene" }
     ];
+    const tutorialMessage = "안녕하세요! 저는 튜토리얼콩이에요. 튜토리얼 대본을 완성하면 다시 돌아올게요. 안녕히계세요!";
+    const tutorialTypingIntervalMs = 80;
 
     let isGameFrameReady = false;
     let gameFrameStyle = "";
@@ -42,6 +49,7 @@
     let isSafeAreaDebugEnabled = false;
     let isFullAreaDebugEnabled = false;
     let isAccountResetConfirmOpen = false;
+    let isTutorialOverlayVisible = false;
     let hasGameStarted = false;
     let isLoadingOverlayVisible = false;
     let loadingProgress = 0;
@@ -51,6 +59,8 @@
     let loginToastHash = "";
     let loginToastKey = 0;
     let loginToastHideTimeoutId: number | null = null;
+    let tutorialTypedMessage = "";
+    let tutorialTypingIntervalId: number | null = null;
     let debugFpsText = "FPS: -";
     let debugMemoryText = "Memory: -";
     $: isDebugStatusPanelVisible = isFpsDebugEnabled || isMemoryDebugEnabled;
@@ -340,11 +350,55 @@
 
     };
 
+    const clearTutorialTyping = () => {
+
+        if (tutorialTypingIntervalId !== null)
+        {
+
+            clearInterval(tutorialTypingIntervalId);
+            tutorialTypingIntervalId = null;
+
+        }
+
+    };
+
+    const startTutorialTyping = () => {
+
+        const characters = Array.from(tutorialMessage);
+        let characterIndex = 0;
+
+        clearTutorialTyping();
+        tutorialTypedMessage = "";
+        tutorialTypingIntervalId = window.setInterval(() => {
+
+            tutorialTypedMessage += characters[characterIndex] ?? "";
+            characterIndex += 1;
+
+            if (characterIndex >= characters.length)
+            {
+
+                clearTutorialTyping();
+
+            }
+
+        }, tutorialTypingIntervalMs);
+
+    };
+
     const startGuestPlay = () => {
         const uid = gameUid || getOrCreateGameUid();
 
         gameUid = uid;
         showLoginToast(uid);
+
+        if (!hasSeenGameTutorial(uid))
+        {
+
+            isTutorialOverlayVisible = true;
+            tutorialTypedMessage = "";
+            markGameTutorialSeen(uid);
+
+        }
 
         loadingProgress = 0;
         isLoadingOverlayVisible = true;
@@ -361,6 +415,13 @@
     const selectBottomMenuScene = (sceneKey: string) => {
 
         EventBus.emit("bottom-menu-scene-selected", sceneKey);
+
+    };
+
+    const closeTutorialOverlay = () => {
+
+        isTutorialOverlayVisible = false;
+        clearTutorialTyping();
 
     };
 
@@ -478,6 +539,8 @@
 
             }
 
+            clearTutorialTyping();
+
             window.removeEventListener("resize", scheduleGameFrameUpdate);
             window.visualViewport?.removeEventListener("resize", scheduleGameFrameUpdate);
             resizeObserver.disconnect();
@@ -494,6 +557,13 @@
         EventBus.emit("debug-full-area-changed", isFullAreaDebugEnabled);
         loadingProgress = 1;
         isLoadingOverlayVisible = false;
+
+        if (isTutorialOverlayVisible)
+        {
+
+            startTutorialTyping();
+
+        }
 
     };
     
@@ -670,6 +740,27 @@
                     </div>
                     <div class="loading-percent">{loadingPercent}%</div>
                 </div>
+            </div>
+        {/if}
+
+        {#if isGameFrameReady && hasGameStarted && isTutorialOverlayVisible && !isLoadingOverlayVisible}
+            <div class="dom-coordinate-layer tutorial-coordinate-layer">
+                <div class="tutorial-dim" aria-hidden="true"></div>
+                <section class="tutorial-guide" aria-label="튜토리얼 안내">
+                    <img
+                        class="tutorial-bean"
+                        src="/assets/tutorial_bean.png"
+                        alt="튜토리얼콩"
+                        width="400"
+                        height="400"
+                    />
+                    <div class="tutorial-dialog" role="dialog" aria-label="튜토리얼콩 대화">
+                        <div class="tutorial-dialog-text" aria-live="polite">{tutorialTypedMessage}</div>
+                        <button class="tutorial-close-button" type="button" on:click={closeTutorialOverlay}>
+                            확인
+                        </button>
+                    </div>
+                </section>
             </div>
         {/if}
 
@@ -872,7 +963,7 @@
         border: 0;
         background-color: transparent;
         color: #ffffff;
-        font-size: 50px;
+        font-size: 42px;
         font-weight: 800;
         line-height: 1;
         cursor: pointer;
@@ -937,6 +1028,10 @@
         z-index: 100;
     }
 
+    .tutorial-coordinate-layer {
+        z-index: 90;
+    }
+
     .bottom-menu {
         position: absolute;
         left: var(--dom-frame-left, 0px);
@@ -995,13 +1090,13 @@
     .login-toast {
         position: absolute;
         left: var(--dom-ui-center-x, 540px);
-        top: calc(var(--dom-frame-top, 0px) + var(--dom-safe-top, 0px) + 54px);
+        top: calc(var(--dom-frame-top, 0px) + var(--dom-safe-top, 0px) + 84px);
         transform: translateX(-50%);
         display: flex;
         align-items: center;
         justify-content: center;
         gap: 8px;
-        max-width: calc(var(--dom-ui-width, 1080px) - 80px);
+        max-width: calc(var(--dom-ui-width, 1080px) - 300px);
         padding: 24px 34px;
         border: 4px solid rgba(255, 255, 255, 0.9);
         border-radius: 999px;
@@ -1018,6 +1113,106 @@
         pointer-events: none;
         opacity: 0;
         animation: login-toast-alpha 2.6s ease-in-out forwards;
+    }
+
+    .tutorial-dim {
+        position: absolute;
+        left: var(--dom-frame-left, 0px);
+        top: var(--dom-frame-top, 0px);
+        width: var(--dom-frame-width, 1080px);
+        height: var(--dom-frame-height, 1920px);
+        background: rgba(0, 0, 0, 0.58);
+        pointer-events: auto;
+    }
+
+    .tutorial-guide {
+        position: absolute;
+        left: calc(var(--dom-ui-left, 0px) + 62px);
+        top: calc(var(--dom-ui-top, 0px) + 212px);
+        display: flex;
+        align-items: flex-start;
+        gap: 26px;
+        pointer-events: none;
+    }
+
+    .tutorial-bean {
+        flex: 0 0 auto;
+        width: 300px;
+        height: 300px;
+        object-fit: contain;
+        animation: tutorial-bean-floating 2.8s ease-in-out infinite;
+        filter: drop-shadow(0 16px 18px rgba(0, 0, 0, 0.26));
+        pointer-events: none;
+    }
+
+    @keyframes tutorial-bean-floating {
+        0%,
+        100% {
+            transform: translateY(0) rotate(-3deg);
+        }
+
+        50% {
+            transform: translateY(-28px) rotate(3deg);
+        }
+    }
+
+    .tutorial-dialog {
+        position: relative;
+        width: min(600px, calc(var(--dom-ui-width, 1080px) - 330px));
+        min-height: 176px;
+        margin-top: 20px;
+        padding: 34px 34px 30px;
+        border: 6px solid #8e5c04;
+        border-radius: 28px;
+        background: rgba(255, 251, 231, 0.98);
+        box-shadow: 0 16px 32px rgba(0, 0, 0, 0.22);
+        color: #4c3300;
+        font-family: "TmoneyRoundWind", sans-serif;
+        pointer-events: auto;
+    }
+
+    .tutorial-dialog::before {
+        content: "";
+        position: absolute;
+        left: -28px;
+        top: 58px;
+        width: 44px;
+        height: 44px;
+        border-left: 6px solid #8e5c04;
+        border-bottom: 6px solid #8e5c04;
+        background: rgba(255, 251, 231, 0.98);
+        transform: rotate(45deg);
+    }
+
+    .tutorial-dialog-text {
+        position: relative;
+        z-index: 1;
+        min-height: 56px;
+        max-width: 100%;
+        font-size: 30px;
+        font-weight: 800;
+        line-height: 1.32;
+        word-break: keep-all;
+    }
+
+    .tutorial-close-button {
+        position: relative;
+        z-index: 1;
+        display: block;
+        min-width: 150px;
+        margin: 28px 0 0 auto;
+        padding: 18px 26px;
+        border: 0;
+        border-radius: 999px;
+        background: #8e5c04;
+        color: #ffffff;
+        font-family: "TmoneyRoundWind", sans-serif;
+        font-size: 30px;
+        font-weight: 800;
+        line-height: 1;
+        cursor: pointer;
+        pointer-events: auto;
+        touch-action: manipulation;
     }
 
     .login-toast-hash {

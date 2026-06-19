@@ -1,6 +1,7 @@
 import { Scene } from "phaser";
 
-import { useSafeAreaCamera } from "../SafeArea";
+import { EventBus } from "../EventBus";
+import { useSafeAreaCamera, useSafeAreaDebugOverlay } from "../SafeArea";
 import { setupBottomMenuSceneNavigation } from "./menuSceneNavigation";
 
 export class SolidColorScene extends Scene {
@@ -15,6 +16,8 @@ export class SolidColorScene extends Scene {
         useSafeAreaCamera(this);
         this.cameras.main.setBackgroundColor(this.backgroundColor);
         setupBottomMenuSceneNavigation(this);
+        useSafeAreaDebugOverlay(this);
+        EventBus.emit("current-scene-ready", this);
     }
 }
 

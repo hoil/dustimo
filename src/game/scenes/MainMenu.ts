@@ -2,13 +2,12 @@ import { Math as PhaserMath, type GameObjects, Scene } from "phaser";
 
 import { EventBus } from "../EventBus";
 import {
-    MAX_GAME_ASPECT,
-    MIN_GAME_ASPECT,
     SAFE_AREA_CENTER_X,
     SAFE_AREA_CENTER_Y,
     SAFE_AREA_HEIGHT,
     SAFE_AREA_WIDTH,
     useSafeAreaCamera,
+    useSafeAreaDebugOverlay,
 } from "../SafeArea";
 import { setupBottomMenuSceneNavigation } from "./menuSceneNavigation";
 
@@ -17,7 +16,6 @@ type LogoPositionCallback = ({ x, y }: { x: number; y: number }) => void;
 export class MainMenu extends Scene {
     fieldBackground!: GameObjects.Image;
     horizontalLogo!: GameObjects.Image;
-    safeAreaOverlay: GameObjects.Container | null = null;
     logoTween: Phaser.Tweens.Tween | null = null;
     logoMoveCallback: LogoPositionCallback | null = null;
 
@@ -33,20 +31,10 @@ export class MainMenu extends Scene {
         useSafeAreaCamera(this);
         this.createFieldBackground();
         setupBottomMenuSceneNavigation(this);
+        useSafeAreaDebugOverlay(this);
 
         // this.createLogo();
-
-        EventBus.on(
-            "debug-safe-area-changed",
-            this.setSafeAreaOverlayVisible,
-            this
-        );
         this.events.once("shutdown", () => {
-            EventBus.off(
-                "debug-safe-area-changed",
-                this.setSafeAreaOverlayVisible,
-                this
-            );
             this.scale.off("resize", this.resizeFieldBackground, this);
         });
         this.scale.on("resize", this.resizeFieldBackground, this);
@@ -97,84 +85,6 @@ export class MainMenu extends Scene {
             .setOrigin(0.5)
             .setDepth(100)
             .setDisplaySize(SAFE_AREA_WIDTH, SAFE_AREA_WIDTH * logoHeightRatio);
-    }
-
-    createSafeAreaOverlay() {
-        const centerX = SAFE_AREA_CENTER_X;
-        const centerY = SAFE_AREA_CENTER_Y;
-        const safeWidth = SAFE_AREA_WIDTH;
-        const safeHeight = SAFE_AREA_HEIGHT;
-        const maxWidth = safeHeight * MAX_GAME_ASPECT;
-        const maxHeight = safeWidth / MIN_GAME_ASPECT;
-        const wideOnlyWidth = (maxWidth - safeWidth) / 2;
-        const tallOnlyHeight = (maxHeight - safeHeight) / 2;
-
-        this.safeAreaOverlay = this.add
-            .container(0, 0)
-            .setDepth(1000)
-            .setAlpha(0.35);
-
-        this.safeAreaOverlay.add(
-            this.add.rectangle(centerX, centerY, maxWidth, maxHeight, 0xff0000)
-        );
-
-        this.safeAreaOverlay.add(
-            this.add.rectangle(
-                centerX - safeWidth / 2 - wideOnlyWidth / 2,
-                centerY,
-                wideOnlyWidth,
-                safeHeight,
-                0x0066ff
-            )
-        );
-
-        this.safeAreaOverlay.add(
-            this.add.rectangle(
-                centerX + safeWidth / 2 + wideOnlyWidth / 2,
-                centerY,
-                wideOnlyWidth,
-                safeHeight,
-                0x0066ff
-            )
-        );
-
-        this.safeAreaOverlay.add(
-            this.add.rectangle(
-                centerX,
-                centerY - safeHeight / 2 - tallOnlyHeight / 2,
-                safeWidth,
-                tallOnlyHeight,
-                0xffdd00
-            )
-        );
-
-        this.safeAreaOverlay.add(
-            this.add.rectangle(
-                centerX,
-                centerY + safeHeight / 2 + tallOnlyHeight / 2,
-                safeWidth,
-                tallOnlyHeight,
-                0xffdd00
-            )
-        );
-
-        this.safeAreaOverlay.add(
-            this.add.rectangle(
-                centerX,
-                centerY,
-                safeWidth,
-                safeHeight,
-                0x00aa44
-            )
-        );
-    }
-
-    setSafeAreaOverlayVisible(isVisible: boolean) {
-        if (isVisible && !this.safeAreaOverlay) {
-            this.createSafeAreaOverlay();
-        }
-
-        this.safeAreaOverlay?.setVisible(isVisible);
     }
 
     moveLogo(vueCallback: LogoPositionCallback) {
