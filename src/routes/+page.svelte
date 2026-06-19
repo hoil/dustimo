@@ -30,14 +30,15 @@
     };
 
     type MainTabKey = "roster" | "farm" | "battle" | "plaza" | "shop";
+    const popSoundPath = "/assets/sounds/pop.mp3";
 
     const bottomMenuItems = [
-        { label: "동료", tabKey: "roster" },
-        { label: "재배", tabKey: "farm" },
-        { label: "전투", tabKey: "battle" },
-        { label: "광장", tabKey: "plaza" },
-        { label: "상점", tabKey: "shop" }
-    ] satisfies { label: string; tabKey: MainTabKey }[];
+        { label: "동료", tabKey: "roster", iconClass: "bottom-menu-icon-roster" },
+        { label: "재배", tabKey: "farm", iconClass: "bottom-menu-icon-farm" },
+        { label: "전투", tabKey: "battle", iconClass: "bottom-menu-icon-battle" },
+        { label: "광장", tabKey: "plaza", iconClass: "bottom-menu-icon-plaza" },
+        { label: "상점", tabKey: "shop", iconClass: "bottom-menu-icon-shop" }
+    ] satisfies { label: string; tabKey: MainTabKey; iconClass: string }[];
 
     const mainTabLabels: Record<MainTabKey, string> = {
         roster: "동료",
@@ -90,10 +91,14 @@
 
     let activeMainTab: MainTabKey = "farm";
     let lastActiveNonShopTab: MainTabKey = defaultReturnTab;
+    let pressedBottomMenuTab: MainTabKey | null = null;
     let phaserRef: TPhaserRef = {
         game: null,
         scene: null
     };
+    let popAudioContext: AudioContext | null = null;
+    let popAudioBuffer: AudioBuffer | null = null;
+    let popAudioBufferPromise: Promise<AudioBuffer | null> | null = null;
 
     $: isShopTabActive = activeMainTab === shopTabKey;
     $: returnTabLabel = getReturnTabLabel();
@@ -453,6 +458,143 @@
 
     };
 
+    const getPopAudioContext = () => {
+
+        if (typeof window === "undefined")
+        {
+
+            return null;
+
+        }
+
+        const AudioContextConstructor = window.AudioContext
+            ?? (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+
+        if (!AudioContextConstructor)
+        {
+
+            return null;
+
+        }
+
+        popAudioContext ??= new AudioContextConstructor();
+
+        return popAudioContext;
+
+    };
+
+    const loadPopSoundBuffer = () => {
+
+        if (popAudioBuffer)
+        {
+
+            return Promise.resolve(popAudioBuffer);
+
+        }
+
+        if (popAudioBufferPromise)
+        {
+
+            return popAudioBufferPromise;
+
+        }
+
+        const audioContext = getPopAudioContext();
+
+        if (!audioContext || typeof fetch === "undefined")
+        {
+
+            return Promise.resolve(null);
+
+        }
+
+        popAudioBufferPromise = fetch(popSoundPath)
+            .then((response) => response.arrayBuffer())
+            .then((arrayBuffer) => audioContext.decodeAudioData(arrayBuffer))
+            .then((audioBuffer) => {
+
+                popAudioBuffer = audioBuffer;
+
+                return audioBuffer;
+
+            })
+            .catch(() => {
+
+                popAudioBufferPromise = null;
+
+                return null;
+
+            });
+
+        return popAudioBufferPromise;
+
+    };
+
+    const playPopAudioBuffer = (audioBuffer: AudioBuffer) => {
+
+        const audioContext = getPopAudioContext();
+
+        if (!audioContext || audioContext.state === "closed")
+        {
+
+            return;
+
+        }
+
+        const source = audioContext.createBufferSource();
+
+        source.buffer = audioBuffer;
+        source.connect(audioContext.destination);
+        source.start(0);
+
+    };
+
+    const playPopSound = () => {
+
+        const audioContext = getPopAudioContext();
+        if (!audioContext)
+        {
+
+            return;
+
+        }
+
+        const resumeAudioContext = audioContext.state === "suspended"
+            ? audioContext.resume()
+            : Promise.resolve();
+
+        if (popAudioBuffer)
+        {
+
+            void resumeAudioContext.then(() => playPopAudioBuffer(popAudioBuffer as AudioBuffer)).catch(() => {
+
+                // Browsers may block audio until a user gesture is available.
+
+            });
+
+            return;
+
+        }
+
+        void loadPopSoundBuffer().then((audioBuffer) => {
+
+            if (!audioBuffer)
+            {
+
+                return;
+
+            }
+
+            return resumeAudioContext.then(() => playPopAudioBuffer(audioBuffer));
+
+        }).catch(() => {
+
+            // Browsers may block audio until a user gesture is available.
+
+        });
+
+    };
+
     const startGuestPlay = () => {
         const uid = gameUid || getOrCreateGameUid();
 
@@ -474,9 +616,23 @@
 
     };
 
+    const startGuestPlayWithSound = () => {
+
+        playPopSound();
+        startGuestPlay();
+
+    };
+
     const startLoginPlay = () => {
 
         window.alert("로그인 담당 콩이 아직 출근 전이에요.");
+
+    };
+
+    const startLoginPlayWithSound = () => {
+
+        playPopSound();
+        startLoginPlay();
 
     };
 
@@ -494,9 +650,41 @@
 
     };
 
+    const selectMainTabWithSound = (tabKey: MainTabKey) => {
+
+        playPopSound();
+        selectMainTab(tabKey);
+
+    };
+
+    const pressBottomMenuButton = (tabKey: MainTabKey) => {
+
+        pressedBottomMenuTab = tabKey;
+        playPopSound();
+
+    };
+
+    const releaseBottomMenuButton = (tabKey: MainTabKey) => {
+
+        if (pressedBottomMenuTab === tabKey)
+        {
+
+            pressedBottomMenuTab = null;
+
+        }
+
+    };
+
     const returnFromShopTab = () => {
 
         selectMainTab(lastActiveNonShopTab);
+
+    };
+
+    const returnFromShopTabWithSound = () => {
+
+        playPopSound();
+        returnFromShopTab();
 
     };
 
@@ -587,6 +775,8 @@
         };
 
         gameUid = getOrCreateGameUid();
+        void loadPopSoundBuffer();
+
         scheduleGameFrameUpdate();
 
         const resizeObserver = new ResizeObserver(scheduleGameFrameUpdate);
@@ -638,6 +828,13 @@
             }
 
             clearTutorialTyping();
+
+            if (popAudioContext && popAudioContext.state !== "closed")
+            {
+
+                void popAudioContext.close();
+
+            }
 
             window.removeEventListener("resize", scheduleGameFrameUpdate);
             window.visualViewport?.removeEventListener("resize", scheduleGameFrameUpdate);
@@ -691,12 +888,20 @@
                         <div class="bottom-menu-buttons">
                             {#each bottomMenuItems as menuItem}
                                 <button
-                                    class={`bottom-menu-button ${activeMainTab === menuItem.tabKey ? "bottom-menu-button-active" : ""}`}
+                                    class={`bottom-menu-button ${activeMainTab === menuItem.tabKey ? "bottom-menu-button-active" : ""} ${pressedBottomMenuTab === menuItem.tabKey ? "bottom-menu-button-pressed" : ""}`}
                                     type="button"
                                     aria-pressed={activeMainTab === menuItem.tabKey}
+                                    on:pointerdown={() => pressBottomMenuButton(menuItem.tabKey)}
+                                    on:pointerup={() => releaseBottomMenuButton(menuItem.tabKey)}
+                                    on:pointerleave={() => releaseBottomMenuButton(menuItem.tabKey)}
+                                    on:pointercancel={() => releaseBottomMenuButton(menuItem.tabKey)}
+                                    on:blur={() => releaseBottomMenuButton(menuItem.tabKey)}
                                     on:click={() => selectMainTab(menuItem.tabKey)}
                                 >
-                                    {menuItem.label}
+                                    <span class="bottom-menu-icon-slot" aria-hidden="true">
+                                        <span class={`bottom-menu-icon ${menuItem.iconClass}`}></span>
+                                    </span>
+                                    <span class="bottom-menu-label">{menuItem.label}</span>
                                 </button>
                             {/each}
                         </div>
@@ -708,7 +913,7 @@
                         class="shop-return-button"
                         type="button"
                         aria-label={`${returnTabLabel} 탭으로 돌아가기`}
-                        on:click={returnFromShopTab}
+                        on:click={returnFromShopTabWithSound}
                     >
                         돌아가기
                     </button>
@@ -831,10 +1036,10 @@
                     <img class="start-logo" src="/assets/logo.png" alt="logo" width="1000" height="750" />
                     <img class="start-character" src="/assets/character.png" alt="" width="600" height="600" aria-hidden="true" />
                     <div class="start-buttons">
-                        <button class="start-button" type="button" on:click={startGuestPlay}>
+                        <button class="start-button" type="button" on:click={startGuestPlayWithSound}>
                             <span class="start-button-label">바로 플레이</span>
                         </button>
-                        <button class="start-button start-button-secondary" type="button" on:click={startLoginPlay}>
+                        <button class="start-button start-button-secondary" type="button" on:click={startLoginPlayWithSound}>
                             <span class="start-button-label">로그인하고 플레이</span>
                         </button>
                     </div>
@@ -1082,7 +1287,7 @@
         cursor: pointer;
         pointer-events: auto;
         paint-order: stroke fill;
-        -webkit-text-stroke: 12px #1b3a02;
+        -webkit-text-stroke: 10px #1b3a02;
     }
 
     .start-button::before {
@@ -1098,7 +1303,7 @@
     }
 
     .start-button-secondary {
-        -webkit-text-stroke: 12px rgb(73, 47, 0);
+        -webkit-text-stroke: 10px rgb(73, 47, 0);
     }
 
     .start-button-secondary::before {
@@ -1178,12 +1383,14 @@
 
     .bottom-menu-button {
         display: flex;
+        flex-direction: column;
         align-items: center;
-        justify-content: center;
+        justify-content: flex-start;
+        gap: 0;
         min-width: 0;
         margin: 0;
         padding: 0;
-        padding-top: 36%;
+        padding-top: 9%;
         border: 0;
         background: transparent;
         color: #fff;
@@ -1198,12 +1405,79 @@
         cursor: pointer;
         pointer-events: auto;
         touch-action: manipulation;
+        transform: translateY(calc(50% - 70px)) scale(1);
+        transform-origin: center 62%;
+        transition: transform 110ms ease-out, filter 110ms ease-out;
+        will-change: transform;
+    }
+
+    .bottom-menu-button-pressed {
+        transform: translateY(calc(47% - 70px)) scale(0.9);
+        transition-duration: 70ms;
+    }
+
+    .bottom-menu-icon-slot {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 82px;
+        height: 72px;
+        margin-bottom: 2px;
+        pointer-events: none;
+    }
+
+    .bottom-menu-icon {
+        position: relative;
+        display: block;
+        width: 58px;
+        height: 58px;
+        border: 7px solid #8e5c04;
+        background: #ffe6ba;
+        box-shadow: 0 7px 0 rgba(91, 57, 0, 0.32);
+        pointer-events: none;
+        transition: border-color 110ms ease-out, background-color 110ms ease-out, box-shadow 110ms ease-out;
+    }
+
+    .bottom-menu-icon-roster {
+        border-radius: 50%;
+    }
+
+    .bottom-menu-icon-farm {
+        border-radius: 16px;
+        transform: rotate(45deg) scale(0.86);
+    }
+
+    .bottom-menu-icon-battle {
+        width: 68px;
+        height: 50px;
+        clip-path: polygon(50% 0, 100% 100%, 0 100%);
+    }
+
+    .bottom-menu-icon-plaza {
+        border-radius: 18px 18px 8px 8px;
+    }
+
+    .bottom-menu-icon-shop {
+        border-radius: 14px;
+    }
+
+    .bottom-menu-label {
+        display: block;
+        height: 38px;
+        line-height: 38px;
+        pointer-events: none;
     }
 
     .bottom-menu-button-active {
         color: #ffe6ba;
         -webkit-text-stroke-color: #5b3900;
         filter: drop-shadow(0 4px 4px rgba(0, 0, 0, 0.25));
+    }
+
+    .bottom-menu-button-active .bottom-menu-icon {
+        border-color: #5b3900;
+        background: #fff3cc;
+        box-shadow: 0 7px 0 rgba(50, 31, 0, 0.36);
     }
 
     .shop-return-button {
