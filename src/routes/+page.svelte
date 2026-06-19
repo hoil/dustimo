@@ -24,6 +24,14 @@
         memory?: PerformanceMemory;
     };
 
+    const bottomMenuItems = [
+        { label: "동료", sceneKey: "CompanionScene" },
+        { label: "재배", sceneKey: "MainMenu" },
+        { label: "전투", sceneKey: "BattleScene" },
+        { label: "광장", sceneKey: "PlazaScene" },
+        { label: "상점", sceneKey: "ShopScene" }
+    ];
+
     let isGameFrameReady = false;
     let gameFrameStyle = "";
     let gameSize = { width: SAFE_AREA_WIDTH, height: SAFE_AREA_HEIGHT };
@@ -37,6 +45,9 @@
     let hasGameStarted = false;
     let isLoadingOverlayVisible = false;
     let loadingProgress = 0;
+    let gameUid = "";
+    let uidCopyFeedback = "";
+    let uidCopyFeedbackTimeoutId: number | null = null;
     let loginToastHash = "";
     let loginToastKey = 0;
     let loginToastHideTimeoutId: number | null = null;
@@ -228,9 +239,111 @@
 
     };
 
-    const startGuestPlay = () => {
-        const uid = getOrCreateGameUid();
+    const setUidCopyFeedback = (message: string) => {
 
+        if (uidCopyFeedbackTimeoutId !== null)
+        {
+
+            clearTimeout(uidCopyFeedbackTimeoutId);
+
+        }
+
+        uidCopyFeedback = message;
+        uidCopyFeedbackTimeoutId = window.setTimeout(() => {
+
+            uidCopyFeedback = "";
+            uidCopyFeedbackTimeoutId = null;
+
+        }, 1600);
+
+    };
+
+    const copyTextWithFallback = async (text: string) => {
+
+        if (!text)
+        {
+
+            return false;
+
+        }
+
+        if (navigator.clipboard?.writeText && window.isSecureContext)
+        {
+
+            try
+            {
+
+                await navigator.clipboard.writeText(text);
+
+                return true;
+
+            }
+            catch
+            {
+
+                // fallback below
+
+            }
+
+        }
+
+        const textArea = document.createElement("textarea");
+
+        textArea.value = text;
+        textArea.readOnly = true;
+        textArea.setAttribute("aria-hidden", "true");
+        textArea.style.position = "fixed";
+        textArea.style.left = "0";
+        textArea.style.top = "0";
+        textArea.style.width = "1px";
+        textArea.style.height = "1px";
+        textArea.style.padding = "0";
+        textArea.style.border = "0";
+        textArea.style.opacity = "0";
+        textArea.style.fontSize = "16px";
+
+        document.body.appendChild(textArea);
+        textArea.focus({ preventScroll: true });
+        textArea.select();
+        textArea.setSelectionRange(0, text.length);
+
+        try
+        {
+
+            return document.execCommand("copy");
+
+        }
+        catch
+        {
+
+            return false;
+
+        }
+        finally
+        {
+
+            textArea.remove();
+
+        }
+
+    };
+
+    const copyGameUid = async () => {
+
+        const uid = gameUid || getOrCreateGameUid();
+
+        gameUid = uid;
+
+        const isCopied = await copyTextWithFallback(uid);
+
+        setUidCopyFeedback(isCopied ? "복사됨" : "복사 실패");
+
+    };
+
+    const startGuestPlay = () => {
+        const uid = gameUid || getOrCreateGameUid();
+
+        gameUid = uid;
         showLoginToast(uid);
 
         loadingProgress = 0;
@@ -241,7 +354,13 @@
 
     const startLoginPlay = () => {
 
-        window.alert("준비 중...");
+        window.alert("로그인 담당 콩이 아직 출근 전이에요.");
+
+    };
+
+    const selectBottomMenuScene = (sceneKey: string) => {
+
+        EventBus.emit("bottom-menu-scene-selected", sceneKey);
 
     };
 
@@ -308,7 +427,7 @@
 
         };
 
-        getOrCreateGameUid();
+        gameUid = getOrCreateGameUid();
         scheduleGameFrameUpdate();
 
         const resizeObserver = new ResizeObserver(scheduleGameFrameUpdate);
@@ -352,6 +471,13 @@
 
             }
 
+            if (uidCopyFeedbackTimeoutId !== null)
+            {
+
+                clearTimeout(uidCopyFeedbackTimeoutId);
+
+            }
+
             window.removeEventListener("resize", scheduleGameFrameUpdate);
             window.visualViewport?.removeEventListener("resize", scheduleGameFrameUpdate);
             resizeObserver.disconnect();
@@ -383,6 +509,28 @@
             />
 
             <div class="dom-coordinate-layer">
+                <nav class="bottom-menu" aria-label="하단 메뉴">
+                    <img
+                        class="bottom-menu-frame"
+                        src="/assets/common/bottomBar.png"
+                        alt=""
+                        width="1440"
+                        height="236"
+                        aria-hidden="true"
+                    />
+                    <div class="bottom-menu-buttons">
+                        {#each bottomMenuItems as menuItem}
+                            <button
+                                class="bottom-menu-button"
+                                type="button"
+                                on:click={() => selectBottomMenuScene(menuItem.sceneKey)}
+                            >
+                                {menuItem.label}
+                            </button>
+                        {/each}
+                    </div>
+                </nav>
+
                 {#if isDebugStatusPanelVisible}
                     <div class="debug-status-panel" aria-live="polite">
                         {#if isFpsDebugEnabled}
@@ -443,6 +591,17 @@
                         </div>
 
                         <div class="debug-popup-footer">
+                            <div class="debug-uid-panel" aria-label="계정 uid">
+                                <div class="debug-uid-label">uid</div>
+                                <div class="debug-uid-value" title={gameUid}>{gameUid}</div>
+                                <button
+                                    class="debug-uid-copy-button"
+                                    type="button"
+                                    on:click={copyGameUid}
+                                >
+                                    {uidCopyFeedback || "복사"}
+                                </button>
+                            </div>
                             <button
                                 class="account-reset-button"
                                 type="button"
@@ -778,6 +937,61 @@
         z-index: 100;
     }
 
+    .bottom-menu {
+        position: absolute;
+        left: var(--dom-frame-left, 0px);
+        bottom: calc(1920px - var(--dom-frame-bottom, 1920px));
+        z-index: 1;
+        width: var(--dom-frame-width, 1080px);
+        aspect-ratio: 1440 / 236;
+        pointer-events: none;
+    }
+
+    .bottom-menu-frame {
+        position: absolute;
+        inset: 0;
+        display: block;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        user-select: none;
+        -webkit-user-drag: none;
+    }
+
+    .bottom-menu-buttons {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        box-sizing: border-box;
+        pointer-events: none;
+        padding-inline: 7%;
+    }
+
+    .bottom-menu-button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 0;
+        margin: 0;
+        padding: 0;
+        padding-top: 36%;
+        border: 0;
+        background: transparent;
+        color: #fff;
+        paint-order: stroke fill;
+        -webkit-text-stroke: 9px #8e5c04;
+        font-family: "TmoneyRoundWind", sans-serif;
+        font-size: 34px;
+        font-weight: 400;
+        line-height: 1;
+        text-align: center;
+        /* text-shadow: 0 2px 4px rgba(0, 0, 0, 0.55); */
+        cursor: pointer;
+        pointer-events: auto;
+        touch-action: manipulation;
+    }
+
     .login-toast {
         position: absolute;
         left: var(--dom-ui-center-x, 540px);
@@ -967,6 +1181,59 @@
         flex: 0 0 auto;
         padding: 20px 24px 24px;
         border-top: 2px solid rgba(255, 255, 255, 0.25);
+    }
+
+    .debug-uid-panel {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 18px;
+        padding: 16px 18px;
+        border: 3px solid rgba(255, 255, 255, 0.34);
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.08);
+        min-width: 0;
+    }
+
+    .debug-uid-label {
+        flex: 0 0 auto;
+        color: rgba(255, 255, 255, 0.72);
+        font-family: monospace;
+        font-size: 28px;
+        font-weight: 800;
+        line-height: 1;
+        text-transform: uppercase;
+    }
+
+    .debug-uid-value {
+        flex: 1 1 auto;
+        min-width: 0;
+        overflow: hidden;
+        color: #ffffff;
+        font-family: monospace;
+        font-size: 30px;
+        font-weight: 700;
+        line-height: 1.2;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        user-select: text;
+        -webkit-user-select: text;
+    }
+
+    .debug-uid-copy-button {
+        flex: 0 0 auto;
+        min-width: 116px;
+        padding: 16px 18px;
+        border: 3px solid rgba(255, 255, 255, 0.74);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.16);
+        color: #ffffff;
+        font-size: 28px;
+        font-weight: 800;
+        line-height: 1;
+        cursor: pointer;
+        pointer-events: auto;
+        touch-action: manipulation;
     }
 
     .account-reset-button {

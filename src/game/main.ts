@@ -1,6 +1,12 @@
 import { Boot } from "./scenes/Boot";
 import { IntroLoadingScene } from "./scenes/IntroLoadingScene";
 import { MainMenu } from "./scenes/MainMenu";
+import {
+    BattleScene,
+    CompanionScene,
+    PlazaScene,
+    ShopScene,
+} from "./scenes/SolidColorScene";
 import { AUTO, Game, Scale } from "phaser";
 
 // Find out more information about the Game Config at:
@@ -15,7 +21,15 @@ const config: Phaser.Types.Core.GameConfig = {
         mode: Scale.FIT,
         autoCenter: Scale.CENTER_BOTH,
     },
-    scene: [Boot, IntroLoadingScene, MainMenu],
+    scene: [
+        Boot,
+        IntroLoadingScene,
+        MainMenu,
+        CompanionScene,
+        BattleScene,
+        PlazaScene,
+        ShopScene,
+    ],
 };
 
 const StartGame = (parent: string, width = 1080, height = 1920) => {

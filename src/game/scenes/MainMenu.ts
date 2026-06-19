@@ -1,7 +1,6 @@
 import { Math as PhaserMath, type GameObjects, Scene } from "phaser";
 
 import { EventBus } from "../EventBus";
-import { getOrCreateGameUid } from "../../lib/gameStorage";
 import {
     MAX_GAME_ASPECT,
     MIN_GAME_ASPECT,
@@ -11,10 +10,12 @@ import {
     SAFE_AREA_WIDTH,
     useSafeAreaCamera,
 } from "../SafeArea";
+import { setupBottomMenuSceneNavigation } from "./menuSceneNavigation";
 
 type LogoPositionCallback = ({ x, y }: { x: number; y: number }) => void;
 
 export class MainMenu extends Scene {
+    fieldBackground!: GameObjects.Image;
     horizontalLogo!: GameObjects.Image;
     safeAreaOverlay: GameObjects.Container | null = null;
     logoTween: Phaser.Tweens.Tween | null = null;
@@ -24,11 +25,16 @@ export class MainMenu extends Scene {
         super("MainMenu");
     }
 
+    preload() {
+        this.load.image("field-background", "/assets/field/bg.png");
+    }
+
     create() {
         useSafeAreaCamera(this);
+        this.createFieldBackground();
+        setupBottomMenuSceneNavigation(this);
 
         // this.createLogo();
-        this.createUidText();
 
         EventBus.on(
             "debug-safe-area-changed",
@@ -41,24 +47,45 @@ export class MainMenu extends Scene {
                 this.setSafeAreaOverlayVisible,
                 this
             );
+            this.scale.off("resize", this.resizeFieldBackground, this);
         });
+        this.scale.on("resize", this.resizeFieldBackground, this);
 
         EventBus.emit("current-scene-ready", this);
     }
 
-    createUidText() {
-        const uid = getOrCreateGameUid();
+    createFieldBackground() {
+        this.fieldBackground = this.add
+            .image(SAFE_AREA_CENTER_X, SAFE_AREA_CENTER_Y, "field-background")
+            .setOrigin(0.5)
+            .setDepth(-100);
 
-        this.add
-            .text(40, 40, `내 uid: ${uid}`, {
-                color: "#ffffff",
-                fontFamily: "Arial, sans-serif",
-                fontSize: "30px",
-                stroke: "#000000",
-                strokeThickness: 5,
-            })
-            .setOrigin(0, 0)
-            .setDepth(100);
+        this.resizeFieldBackground();
+    }
+
+    resizeFieldBackground() {
+        if (!this.fieldBackground) {
+            return;
+        }
+
+        const textureFrame = this.textures.getFrame("field-background");
+        const imageAspect = textureFrame.width / textureFrame.height;
+        const targetWidth = this.scale.width;
+        const targetHeight = this.scale.height;
+        const targetAspect = targetWidth / targetHeight;
+
+        if (imageAspect > targetAspect) {
+            this.fieldBackground.setDisplaySize(
+                targetHeight * imageAspect,
+                targetHeight
+            );
+            return;
+        }
+
+        this.fieldBackground.setDisplaySize(
+            targetWidth,
+            targetWidth / imageAspect
+        );
     }
 
     createLogo() {
