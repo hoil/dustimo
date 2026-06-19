@@ -940,7 +940,7 @@
     .bottom-menu {
         position: absolute;
         left: var(--dom-frame-left, 0px);
-        bottom: calc(1920px - var(--dom-frame-bottom, 1920px));
+        bottom: calc(1920px - var(--dom-ui-bottom, 1920px));
         z-index: 1;
         width: var(--dom-frame-width, 1080px);
         aspect-ratio: 1440 / 236;
