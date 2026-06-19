@@ -1,6 +1,35 @@
 # 프로젝트 설명
 
 -   웹으로 먼저 출시하고(데스크탑 브라우저, 모바일 브라우저) 이후 Capacitor 같은 wrapper로 래핑해 스토어에 앱으로 출시 예정임(추후)
+-   Phaser(게임 엔진) + Svelte/SvelteKit(UI) + TypeScript 구성. SSR은 꺼져 있고(`ssr = false`) 클라이언트에서만 동작한다.
+
+# 디렉터리 구조
+
+-   `src/routes/` = SvelteKit 라우트. 페이지·레이아웃이 들어가는 **얇은 조율 레이어**다. 복잡한 로직/마크업은 직접 들고 있지 말고 `src/lib/`로 위임한다.
+    -   `+page.svelte`는 상태 보유와 컴포넌트 배치(조율) 위주로 유지한다. 순수 계산·범용 유틸·재사용 UI는 분리한다.
+    -   `+layout.svelte`는 전역 CSS(`@font-face`, `:global(...)` 리셋, `html`/`body`)를 담는다.
+-   `src/lib/` = 공유 코드의 단일 루트.
+    -   `src/lib/components/` = 재사용 Svelte UI 컴포넌트.
+    -   `src/lib/*.ts` = 순수 로직/데이터(예: `navigation.ts` 탭↔씬 설정, `gameFrame.ts` 프레임 계산, `clipboard.ts`, `gameStorage.ts`).
+-   `src/game/` = Phaser 엔진 코드(씬·이벤트·디폴트 영역). 작성 규칙은 아래 「game/ 작성 규칙」 참조.
+-   `src/PhaserGame.svelte` = Phaser ↔ Svelte 브리지(게임 인스턴스 생성/스케일/리사이즈 처리).
+
+# game/ 작성 규칙
+
+-   새 씬은 `src/game/scenes/`에 `XxxScene.ts`로 만들고 `Phaser.Scene`을 상속한다. 자산 로드는 `preload()`, 오브젝트 배치는 `create()`에 둔다.
+-   씬 `create()`에서 `src/game/SafeArea.ts`의 `useSafeAreaCamera(this)`로 카메라를 디폴트 영역에 정렬한다. safe area/디버그 오버레이가 필요하면 `useSafeAreaDebugOverlay(this)`도 호출한다.
+-   씬 준비가 끝나면 `EventBus.emit("current-scene-ready", this)`로 알린다(브리지/DOM UI가 이 신호로 현재 씬을 잡는다).
+-   새 씬은 반드시 `src/game/main.ts`의 `config.scene` 배열에 등록해야 로드된다. DOM 메뉴 탭과 연결하려면 `src/lib/navigation.ts`의 `tabSceneKeys`에도 같은 씬 키를 매핑한다.
+-   Svelte ↔ Phaser 통신은 `src/game/EventBus.ts`만 사용한다. 씬에서 DOM/Svelte를 직접 참조하지 않는다.
+-   디폴트 영역 상수(`SAFE_AREA_*`, `FULL_AREA_*`), 카메라 정렬, safe area 디버그 로직은 `src/game/SafeArea.ts`에 모은다. 좌표 규칙은 위 「Phaser 좌표 시스템」을 따른다.
+-   단순 색상 플레이스홀더 씬은 `SolidColorScene`을 상속해 한 파일에 모아 둔다(`SolidColorScene.ts`). 실제 구현이 커지면 그때 개별 파일로 분리한다.
+
+# lib/ 작성 규칙
+
+-   재사용 UI는 `src/lib/components/`에 PascalCase `.svelte`로 추가한다. 현재 규모에선 하위 폴더 없이 평면으로 둔다(컴포넌트군이 충분히 커지면 역할별 폴더로 그룹화).
+-   순수 로직/데이터는 `src/lib/*.ts`에 camelCase로 둔다. Svelte 반응형 상태에 의존하지 않는 **순수 함수**로 작성하고, 필요한 값(예: DOM 요소, 플래그)은 인자로 받는다.
+-   컴포넌트의 부모-자식 통신은 콜백 prop(`onXxx`)을 사용하고, 양방향 동기화가 필요한 상태만 `bind:`를 쓴다.
+-   import는 프로젝트 관례대로 상대경로를 사용한다(`$lib` 별칭은 쓰지 않는다).
 
 # 커맨드 룰
 

@@ -5,6 +5,22 @@
 <slot />
 
 <style>
+    @font-face {
+        font-family: "TmoneyRoundWind";
+        src: url("/assets/fonts/TmoneyRoundWind/TmoneyRoundWindRegular.woff") format("woff");
+        font-weight: 400;
+        font-style: normal;
+        font-display: swap;
+    }
+
+    @font-face {
+        font-family: "TmoneyRoundWind";
+        src: url("/assets/fonts/TmoneyRoundWind/TmoneyRoundWindExtraBold.woff") format("woff");
+        font-weight: 800;
+        font-style: normal;
+        font-display: swap;
+    }
+
     :global(html) {
         width: 100vw;
         height: 100vh;
@@ -36,5 +52,23 @@
 
     :global(*) {
         box-sizing: border-box;
+    }
+
+    :global(*) {
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    :global(*:focus),
+    :global(*:focus-visible),
+    :global(*:active) {
+        outline: none;
+        box-shadow: none;
+    }
+
+    :global(button) {
+        -webkit-tap-highlight-color: transparent;
+        -webkit-appearance: none;
+        appearance: none;
+        outline: none;
     }
 </style>
