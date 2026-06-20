@@ -19,12 +19,6 @@ export class SolidColorScene extends Scene {
     }
 }
 
-export class RosterScene extends SolidColorScene {
-    constructor() {
-        super("RosterScene", "#7d63d8");
-    }
-}
-
 export class BattleScene extends SolidColorScene {
     constructor() {
         super("BattleScene", "#c64b4b");

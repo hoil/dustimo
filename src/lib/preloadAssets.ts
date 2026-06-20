@@ -10,5 +10,6 @@ export const domInitialAssetUrls = [
     "/assets/bottom_menu/battle_icon.png",
     "/assets/bottom_menu/plaza_icon.png",
     "/assets/bottom_menu/shop_icon.png",
-    "/assets/common/popup.png"
+    "/assets/common/popup.png",
+    "/assets/roster/frame_border.png"
 ];

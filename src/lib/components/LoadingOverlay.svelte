@@ -15,8 +15,34 @@
         return new Promise((resolve) => {
 
             const image = new Image();
+            let isResolved = false;
 
-            image.onload = () => resolve();
+            const resolveAfterDecode = () => {
+
+                if (isResolved)
+                {
+
+                    return;
+
+                }
+
+                isResolved = true;
+
+                if (!("decode" in image))
+                {
+
+                    resolve();
+                    return;
+
+                }
+
+                image.decode()
+                    .catch(() => undefined)
+                    .then(() => resolve());
+
+            };
+
+            image.onload = resolveAfterDecode;
             image.onerror = () => resolve();
             image.decoding = "async";
             image.src = url;
@@ -24,7 +50,7 @@
             if (image.complete)
             {
 
-                resolve();
+                resolveAfterDecode();
 
             }
 
@@ -41,7 +67,12 @@
 
         }
 
-        return document.fonts.ready.then(() => undefined);
+        return Promise.all([
+            document.fonts.load("400 34px \"TmoneyRoundWind\""),
+            document.fonts.load("800 34px \"TmoneyRoundWind\"")
+        ])
+            .then(() => document.fonts.ready)
+            .then(() => undefined);
 
     };
 

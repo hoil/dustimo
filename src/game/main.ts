@@ -1,10 +1,10 @@
 import { Boot } from "./scenes/Boot";
 import { FarmScene } from "./scenes/FarmScene";
 import { IntroLoadingScene } from "./scenes/IntroLoadingScene";
+import { RosterScene } from "./scenes/RosterScene";
 import {
     BattleScene,
     PlazaScene,
-    RosterScene,
     ShopScene,
 } from "./scenes/SolidColorScene";
 import { AUTO, Game, Scale } from "phaser";

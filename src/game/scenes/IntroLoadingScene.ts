@@ -1,6 +1,7 @@
 import { Scene } from "phaser";
 
 import { EventBus } from "../EventBus";
+import { phaserInitialImageAssets } from "../preloadAssets";
 
 export class IntroLoadingScene extends Scene {
     private isPhaserLoadingComplete = false;
@@ -21,7 +22,10 @@ export class IntroLoadingScene extends Scene {
     preload() {
         EventBus.emit("phaser-loading-progress", 0);
 
-        this.load.image("field-background", "/assets/farm/bg.png");
+        for (const imageAsset of phaserInitialImageAssets) {
+            this.load.image(imageAsset.key, imageAsset.url);
+        }
+
         this.load.on("progress", this.handlePhaserLoadingProgress, this);
         this.load.once("complete", this.handlePhaserLoadingComplete, this);
     }

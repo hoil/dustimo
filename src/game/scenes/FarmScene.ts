@@ -1,6 +1,7 @@
 import { Math as PhaserMath, type GameObjects, Scene } from "phaser";
 
 import { EventBus } from "../EventBus";
+import { FIELD_BACKGROUND_TEXTURE_KEY } from "../preloadAssets";
 import {
     SAFE_AREA_CENTER_X,
     SAFE_AREA_CENTER_Y,
@@ -38,7 +39,7 @@ export class FarmScene extends Scene {
 
     createFieldBackground() {
         this.fieldBackground = this.add
-            .image(SAFE_AREA_CENTER_X, SAFE_AREA_CENTER_Y, "field-background")
+            .image(SAFE_AREA_CENTER_X, SAFE_AREA_CENTER_Y, FIELD_BACKGROUND_TEXTURE_KEY)
             .setOrigin(0.5)
             .setDepth(-100);
 
@@ -50,7 +51,7 @@ export class FarmScene extends Scene {
             return;
         }
 
-        const textureFrame = this.textures.getFrame("field-background");
+        const textureFrame = this.textures.getFrame(FIELD_BACKGROUND_TEXTURE_KEY);
         const imageAspect = textureFrame.width / textureFrame.height;
         const targetWidth = this.scale.width;
         const targetHeight = this.scale.height;
