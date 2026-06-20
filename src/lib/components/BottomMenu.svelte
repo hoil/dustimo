@@ -17,7 +17,7 @@
         src="/assets/bottom_menu/frame.png"
         alt=""
         width="1440"
-        height="236"
+        height="782"
         aria-hidden="true"
     />
     <div class="bottom-menu-buttons">
@@ -49,16 +49,18 @@
         bottom: calc(1920px - var(--dom-ui-bottom, 1920px));
         z-index: 1;
         width: var(--dom-frame-width, 1080px);
-        aspect-ratio: 1440 / 236;
+        aspect-ratio: 1440 / 330;
+        overflow: hidden;
         pointer-events: none;
     }
 
     .bottom-menu-frame {
         position: absolute;
-        inset: 0;
+        left: 0;
+        top: 0;
         display: block;
         width: 100%;
-        height: 100%;
+        height: auto;
         pointer-events: none;
         user-select: none;
         -webkit-user-drag: none;
@@ -90,7 +92,7 @@
         paint-order: stroke fill;
         -webkit-text-stroke: 9px #8e5c04;
         font-family: "TmoneyRoundWind", sans-serif;
-        font-size: 34px;
+        font-size: 36px;
         font-weight: 400;
         line-height: 1;
         text-align: center;
@@ -98,14 +100,14 @@
         cursor: pointer;
         pointer-events: auto;
         touch-action: manipulation;
-        transform: translateY(calc(50% - 70px)) scale(1);
+        transform: translateY(calc(60% + -65px)) scale(1);
         transform-origin: center 62%;
         transition: transform 110ms ease-out, filter 110ms ease-out;
         will-change: transform;
     }
 
     .bottom-menu-button-pressed {
-        transform: translateY(calc(47% - 70px)) scale(0.9);
+        transform: translateY(calc(57% - 65px)) scale(0.9);
         transition-duration: 70ms;
     }
 
@@ -121,8 +123,8 @@
 
     .bottom-menu-icon {
         display: block;
-        width: 72px;
-        height: 72px;
+        width: 100px;
+        height: 100px;
         object-fit: contain;
         pointer-events: none;
         user-select: none;
