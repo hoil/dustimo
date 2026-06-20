@@ -1,0 +1,1 @@
+export const ROSTER_PREVIEW_HEIGHT = 760;

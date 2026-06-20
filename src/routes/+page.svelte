@@ -26,6 +26,7 @@
     import DebugPanel from "../lib/components/DebugPanel.svelte";
     import StartScreen from "../lib/components/StartScreen.svelte";
     import LoadingOverlay from "../lib/components/LoadingOverlay.svelte";
+    import RosterPanel from "../lib/components/RosterPanel.svelte";
     import TutorialOverlay from "../lib/components/TutorialOverlay.svelte";
     import LoginToast from "../lib/components/LoginToast.svelte";
     import TestPopup from "../lib/components/TestPopup.svelte";
@@ -652,6 +653,10 @@
         {#if isGameFrameReady && hasGameStarted}
             <div class="dom-coordinate-layer">
                 {#if !isShopTabActive}
+                    {#if activeMainTab === "roster"}
+                        <RosterPanel />
+                    {/if}
+
                     <BottomMenu
                         items={bottomMenuItems}
                         activeTab={activeMainTab}
