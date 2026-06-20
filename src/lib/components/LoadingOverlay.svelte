@@ -1,9 +1,98 @@
 <script lang="ts">
 
+    import { onMount } from "svelte";
+    import { domInitialAssetUrls } from "../preloadAssets";
+
     export let progress: number;
+    export let onDomProgress: (progress: number) => void = () => {};
+    export let onDomComplete: () => void = () => {};
 
     $: loadingPercent = Math.round(progress * 100);
     $: loadingBarWidth = `${loadingPercent}%`;
+
+    const preloadImage = (url: string): Promise<void> => {
+
+        return new Promise((resolve) => {
+
+            const image = new Image();
+
+            image.onload = () => resolve();
+            image.onerror = () => resolve();
+            image.decoding = "async";
+            image.src = url;
+
+            if (image.complete)
+            {
+
+                resolve();
+
+            }
+
+        });
+
+    };
+
+    const preloadFonts = (): Promise<void> => {
+
+        if (!("fonts" in document))
+        {
+
+            return Promise.resolve();
+
+        }
+
+        return document.fonts.ready.then(() => undefined);
+
+    };
+
+    onMount(() => {
+
+        let isCancelled = false;
+        const preloadTasks = [
+            ...domInitialAssetUrls.map(preloadImage),
+            preloadFonts()
+        ];
+        const totalTaskCount = preloadTasks.length;
+        let completedTaskCount = 0;
+
+        const reportProgress = () => {
+
+            if (isCancelled)
+            {
+
+                return;
+
+            }
+
+            onDomProgress(totalTaskCount === 0 ? 1 : completedTaskCount / totalTaskCount);
+
+        };
+
+        reportProgress();
+
+        Promise.all(preloadTasks.map((task) => task.finally(() => {
+
+            completedTaskCount += 1;
+            reportProgress();
+
+        }))).then(() => {
+
+            if (!isCancelled)
+            {
+
+                onDomComplete();
+
+            }
+
+        });
+
+        return () => {
+
+            isCancelled = true;
+
+        };
+
+    });
 
 </script>
 

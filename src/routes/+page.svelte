@@ -66,6 +66,8 @@
 
     }
 
+    const LOADING_PROGRESS_READY_DISPLAY_LIMIT = 0.95;
+    const LOADING_COMPLETE_TWEEN_DURATION = 450;
     const tutorialMessage = "안녕하세요! 저는 튜토리얼콩이에요. 튜토리얼 대본을 완성하면 다시 돌아올게요. 안녕히계세요!";
 
     let isGameFrameReady = false;
@@ -83,6 +85,12 @@
     let hasGameStarted = false;
     let isLoadingOverlayVisible = false;
     let loadingProgress = 0;
+    let domLoadingProgress = 0;
+    let phaserLoadingProgress = 0;
+    let isDomLoadingComplete = false;
+    let isPhaserLoadingComplete = false;
+    let hasIntroStartRequested = false;
+    let loadingProgressTweenFrameId: number | null = null;
     let gameUid = "";
     let uidCopyFeedback = "";
     let uidCopyFeedbackTimeoutId: number | null = null;
@@ -205,6 +213,140 @@
 
     };
 
+    const clampProgress = (progress: number) => {
+
+        return Math.min(1, Math.max(0, progress));
+
+    };
+
+    const updateCombinedLoadingProgress = () => {
+
+        if (hasIntroStartRequested)
+        {
+
+            return;
+
+        }
+
+        loadingProgress = Math.min(
+            LOADING_PROGRESS_READY_DISPLAY_LIMIT,
+            clampProgress((domLoadingProgress + phaserLoadingProgress) / 2)
+        );
+
+    };
+
+    const cancelLoadingProgressTween = () => {
+
+        if (loadingProgressTweenFrameId !== null)
+        {
+
+            cancelAnimationFrame(loadingProgressTweenFrameId);
+            loadingProgressTweenFrameId = null;
+
+        }
+
+    };
+
+    const tweenLoadingProgressToComplete = (onComplete: () => void) => {
+
+        cancelLoadingProgressTween();
+
+        const startProgress = loadingProgress;
+        const startTime = performance.now();
+
+        const updateProgress = (currentTime: number) => {
+
+            const elapsedTime = currentTime - startTime;
+            const tweenProgress = clampProgress(elapsedTime / LOADING_COMPLETE_TWEEN_DURATION);
+            const easedProgress = 1 - Math.pow(1 - tweenProgress, 3);
+
+            loadingProgress = startProgress + (1 - startProgress) * easedProgress;
+
+            if (tweenProgress < 1)
+            {
+
+                loadingProgressTweenFrameId = requestAnimationFrame(updateProgress);
+                return;
+
+            }
+
+            loadingProgressTweenFrameId = null;
+            loadingProgress = 1;
+            onComplete();
+
+        };
+
+        loadingProgressTweenFrameId = requestAnimationFrame(updateProgress);
+
+    };
+
+    const requestIntroStartIfReady = () => {
+
+        if (
+            !isLoadingOverlayVisible ||
+            hasIntroStartRequested ||
+            !isDomLoadingComplete ||
+            !isPhaserLoadingComplete
+        )
+        {
+
+            return;
+
+        }
+
+        hasIntroStartRequested = true;
+        tweenLoadingProgressToComplete(() => {
+
+            EventBus.emit("intro-loading-start-game");
+
+        });
+
+    };
+
+    const resetIntroLoadingState = () => {
+
+        cancelLoadingProgressTween();
+        domLoadingProgress = 0;
+        phaserLoadingProgress = 0;
+        isDomLoadingComplete = false;
+        isPhaserLoadingComplete = false;
+        hasIntroStartRequested = false;
+        loadingProgress = 0;
+
+    };
+
+    const handleDomLoadingProgress = (progress: number) => {
+
+        domLoadingProgress = clampProgress(progress);
+        updateCombinedLoadingProgress();
+
+    };
+
+    const handleDomLoadingComplete = () => {
+
+        domLoadingProgress = 1;
+        isDomLoadingComplete = true;
+        updateCombinedLoadingProgress();
+        requestIntroStartIfReady();
+
+    };
+
+    const handlePhaserLoadingProgress = (progress: number) => {
+
+        phaserLoadingProgress = clampProgress(progress);
+        updateCombinedLoadingProgress();
+
+    };
+
+    const handlePhaserLoadingComplete = () => {
+
+        phaserLoadingProgress = 1;
+        isPhaserLoadingComplete = true;
+        updateCombinedLoadingProgress();
+        requestIntroStartIfReady();
+
+    };
+
     const startIntroLoadingScene = () => {
 
         const currentScene = phaserRef.scene;
@@ -246,7 +388,7 @@
 
         }
 
-        loadingProgress = 0;
+        resetIntroLoadingState();
         isLoadingOverlayVisible = true;
         startInitialPopupFlow();
         hasGameStarted = true;
@@ -404,12 +546,6 @@
 
         };
 
-        const handleGameLoadingProgress = (progress: number) => {
-
-            loadingProgress = Math.min(1, Math.max(0, progress));
-
-        };
-
         gameUid = getOrCreateGameUid();
 
         scheduleGameFrameUpdate();
@@ -420,7 +556,8 @@
 
         fpsAnimationFrameId = requestAnimationFrame(updateFpsFrameCount);
         debugUpdateIntervalId = window.setInterval(updateDebugStatus, 500);
-        EventBus.on("game-loading-progress", handleGameLoadingProgress);
+        EventBus.on("phaser-loading-progress", handlePhaserLoadingProgress);
+        EventBus.on("phaser-loading-complete", handlePhaserLoadingComplete);
 
         window.addEventListener("resize", scheduleGameFrameUpdate);
         window.visualViewport?.addEventListener("resize", scheduleGameFrameUpdate);
@@ -462,10 +599,13 @@
 
             }
 
+            cancelLoadingProgressTween();
+
             window.removeEventListener("resize", scheduleGameFrameUpdate);
             window.visualViewport?.removeEventListener("resize", scheduleGameFrameUpdate);
             resizeObserver.disconnect();
-            EventBus.off("game-loading-progress", handleGameLoadingProgress);
+            EventBus.off("phaser-loading-progress", handlePhaserLoadingProgress);
+            EventBus.off("phaser-loading-complete", handlePhaserLoadingComplete);
 
         };
 
@@ -557,7 +697,11 @@
         {/if}
 
         {#if isLoadingOverlayVisible}
-            <LoadingOverlay progress={loadingProgress} />
+            <LoadingOverlay
+                progress={loadingProgress}
+                onDomProgress={handleDomLoadingProgress}
+                onDomComplete={handleDomLoadingComplete}
+            />
         {/if}
 
         {#if isGameFrameReady && hasGameStarted && activeInitialPopup?.key === "test-popup" && !isLoadingOverlayVisible}

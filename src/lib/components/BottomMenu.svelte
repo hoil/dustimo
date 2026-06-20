@@ -14,7 +14,7 @@
 <nav class="bottom-menu" aria-label="하단 메뉴">
     <img
         class="bottom-menu-frame"
-        src="/assets/common/bottomBar.png"
+        src="/assets/bottom_menu/frame.png"
         alt=""
         width="1440"
         height="236"
@@ -34,7 +34,7 @@
                 onclick={() => onSelect(menuItem.tabKey)}
             >
                 <span class="bottom-menu-icon-slot" aria-hidden="true">
-                    <span class={`bottom-menu-icon ${menuItem.iconClass}`}></span>
+                    <img class="bottom-menu-icon" src={menuItem.iconSrc} alt="" />
                 </span>
                 <span class="bottom-menu-label">{menuItem.label}</span>
             </button>
@@ -71,7 +71,7 @@
         grid-template-columns: repeat(5, minmax(0, 1fr));
         box-sizing: border-box;
         pointer-events: none;
-        padding-inline: 7%;
+        /* padding-inline: 0%; */
     }
 
     .bottom-menu-button {
@@ -120,38 +120,13 @@
     }
 
     .bottom-menu-icon {
-        position: relative;
         display: block;
-        width: 58px;
-        height: 58px;
-        border: 7px solid #8e5c04;
-        background: #ffe6ba;
-        box-shadow: 0 7px 0 rgba(91, 57, 0, 0.32);
+        width: 72px;
+        height: 72px;
+        object-fit: contain;
         pointer-events: none;
-        transition: border-color 110ms ease-out, background-color 110ms ease-out, box-shadow 110ms ease-out;
-    }
-
-    .bottom-menu-icon-roster {
-        border-radius: 50%;
-    }
-
-    .bottom-menu-icon-farm {
-        border-radius: 16px;
-        transform: rotate(45deg) scale(0.86);
-    }
-
-    .bottom-menu-icon-battle {
-        width: 68px;
-        height: 50px;
-        clip-path: polygon(50% 0, 100% 100%, 0 100%);
-    }
-
-    .bottom-menu-icon-plaza {
-        border-radius: 18px 18px 8px 8px;
-    }
-
-    .bottom-menu-icon-shop {
-        border-radius: 14px;
+        user-select: none;
+        -webkit-user-drag: none;
     }
 
     .bottom-menu-label {
@@ -167,9 +142,4 @@
         filter: drop-shadow(0 4px 4px rgba(0, 0, 0, 0.25));
     }
 
-    .bottom-menu-button-active .bottom-menu-icon {
-        border-color: #5b3900;
-        background: #fff3cc;
-        box-shadow: 0 7px 0 rgba(50, 31, 0, 0.36);
-    }
 </style>

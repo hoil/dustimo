@@ -2,49 +2,64 @@ import { Scene } from "phaser";
 
 import { EventBus } from "../EventBus";
 
-const INTRO_LOADING_STEP_DURATION = 1000;
-const INTRO_LOADING_PROGRESS_STEPS = [1 / 3, 2 / 3, 1];
-
 export class IntroLoadingScene extends Scene {
-    private loadingProgress = { value: 0 };
+    private isPhaserLoadingComplete = false;
+    private isSceneCreated = false;
+    private isStartRequested = false;
 
     constructor() {
         super("IntroLoadingScene");
     }
 
-    create() {
-        this.cameras.main.setBackgroundColor("#100f0f");
-        EventBus.emit("game-loading-progress", 0);
-        this.playIntroLoadingProgress();
+    init() {
+        this.isPhaserLoadingComplete = false;
+        this.isSceneCreated = false;
+        this.isStartRequested = false;
+        EventBus.once("intro-loading-start-game", this.handleStartGameRequest, this);
     }
 
-    private async playIntroLoadingProgress() {
-        for (const progress of INTRO_LOADING_PROGRESS_STEPS) {
-            await this.tweenLoadingProgress(progress);
+    preload() {
+        EventBus.emit("phaser-loading-progress", 0);
+
+        this.load.image("field-background", "/assets/farm/bg.png");
+        this.load.on("progress", this.handlePhaserLoadingProgress, this);
+        this.load.once("complete", this.handlePhaserLoadingComplete, this);
+    }
+
+    create() {
+        this.cameras.main.setBackgroundColor("#100f0f");
+        this.isSceneCreated = true;
+        this.events.once("shutdown", this.cleanupEventListeners, this);
+        this.tryStartGame();
+    }
+
+    private handlePhaserLoadingProgress(progress: number) {
+        EventBus.emit("phaser-loading-progress", progress);
+    }
+
+    private handlePhaserLoadingComplete() {
+        this.isPhaserLoadingComplete = true;
+        this.load.off("progress", this.handlePhaserLoadingProgress, this);
+        EventBus.emit("phaser-loading-progress", 1);
+        EventBus.emit("phaser-loading-complete");
+        this.tryStartGame();
+    }
+
+    private handleStartGameRequest() {
+        this.isStartRequested = true;
+        this.tryStartGame();
+    }
+
+    private tryStartGame() {
+        if (!this.isSceneCreated || !this.isPhaserLoadingComplete || !this.isStartRequested) {
+            return;
         }
 
-        EventBus.emit("game-loading-progress", 1);
         this.scene.start("FarmScene");
     }
 
-    private tweenLoadingProgress(targetProgress: number) {
-        return new Promise<void>((resolve) => {
-            this.tweens.add({
-                targets: this.loadingProgress,
-                value: targetProgress,
-                duration: INTRO_LOADING_STEP_DURATION,
-                ease: "Sine.easeInOut",
-                onUpdate: () => {
-                    EventBus.emit(
-                        "game-loading-progress",
-                        this.loadingProgress.value
-                    );
-                },
-                onComplete: () => {
-                    EventBus.emit("game-loading-progress", targetProgress);
-                    resolve();
-                },
-            });
-        });
+    private cleanupEventListeners() {
+        this.load.off("progress", this.handlePhaserLoadingProgress, this);
+        EventBus.off("intro-loading-start-game", this.handleStartGameRequest, this);
     }
 }

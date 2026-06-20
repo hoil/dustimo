@@ -3,15 +3,15 @@ export type MainTabKey = "roster" | "farm" | "battle" | "plaza" | "shop";
 export type BottomMenuItem = {
     label: string;
     tabKey: MainTabKey;
-    iconClass: string;
+    iconSrc: string;
 };
 
 export const bottomMenuItems = [
-    { label: "동료", tabKey: "roster", iconClass: "bottom-menu-icon-roster" },
-    { label: "재배", tabKey: "farm", iconClass: "bottom-menu-icon-farm" },
-    { label: "전투", tabKey: "battle", iconClass: "bottom-menu-icon-battle" },
-    { label: "광장", tabKey: "plaza", iconClass: "bottom-menu-icon-plaza" },
-    { label: "상점", tabKey: "shop", iconClass: "bottom-menu-icon-shop" }
+    { label: "동료", tabKey: "roster", iconSrc: "/assets/bottom_menu/roster_icon.png" },
+    { label: "재배", tabKey: "farm", iconSrc: "/assets/bottom_menu/farm_icon.png" },
+    { label: "전투", tabKey: "battle", iconSrc: "/assets/bottom_menu/battle_icon.png" },
+    { label: "광장", tabKey: "plaza", iconSrc: "/assets/bottom_menu/plaza_icon.png" },
+    { label: "상점", tabKey: "shop", iconSrc: "/assets/bottom_menu/shop_icon.png" }
 ] satisfies BottomMenuItem[];
 
 const mainTabLabels: Record<MainTabKey, string> = {

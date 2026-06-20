@@ -22,10 +22,6 @@ export class FarmScene extends Scene {
         super("FarmScene");
     }
 
-    preload() {
-        this.load.image("field-background", "/assets/field/bg.png");
-    }
-
     create() {
         useSafeAreaCamera(this);
         this.createFieldBackground();
