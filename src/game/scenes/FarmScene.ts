@@ -2,6 +2,7 @@ import { Math as PhaserMath, type GameObjects, Scene } from "phaser";
 
 import { EventBus } from "../EventBus";
 import { FIELD_BACKGROUND_TEXTURE_KEY } from "../preloadAssets";
+import type { PlantedFarmBean } from "../../lib/beans";
 import {
     SAFE_AREA_CENTER_X,
     SAFE_AREA_CENTER_Y,
@@ -13,11 +14,45 @@ import {
 
 type LogoPositionCallback = ({ x, y }: { x: number; y: number }) => void;
 
+type FarmGroupCorner = "top-left" | "top-right" | "bottom-left" | "bottom-right";
+type FarmPlantSlot = {
+    id: string;
+    x: number;
+    y: number;
+    button: GameObjects.Container;
+    buttonCircle: GameObjects.Arc;
+    buttonLabel: GameObjects.Text;
+    plantedBeanImage: GameObjects.Image | null;
+};
+
+type FarmPlantBeanPayload = {
+    slotId: string;
+    bean: PlantedFarmBean["bean"];
+};
+
+const FARM_GROUP_WIDTH = 300;
+const FARM_GROUP_HEIGHT = 300;
+const FARM_GROUP_HORIZONTAL_GAP = 160;
+const FARM_GROUP_VERTICAL_GAP = 220;
+const FARM_GROUP_DEPTH = 20;
+const FARM_PLANT_BUTTON_SIZE = 78;
+const FARM_PLANT_BUTTON_INSET = 64;
+const FARM_PLANTED_BEAN_SIZE = 126;
+
+const farmGroupCorners: FarmGroupCorner[] = [
+    "top-left",
+    "top-right",
+    "bottom-left",
+    "bottom-right"
+];
+
 export class FarmScene extends Scene {
     fieldBackground!: GameObjects.Image;
     horizontalLogo!: GameObjects.Image;
     logoTween: Phaser.Tweens.Tween | null = null;
     logoMoveCallback: LogoPositionCallback | null = null;
+    farmPlantSlots = new Map<string, FarmPlantSlot>();
+    isPlantPanelOpen = false;
 
     constructor() {
         super("FarmScene");
@@ -26,13 +61,20 @@ export class FarmScene extends Scene {
     create() {
         useSafeAreaCamera(this);
         this.createFieldBackground();
+        this.createFarmGroups();
         useSafeAreaDebugOverlay(this);
 
         // this.createLogo();
         this.events.once("shutdown", () => {
             this.scale.off("resize", this.resizeFieldBackground, this);
+            EventBus.off("farm-plant-bean", this.handleFarmPlantBean, this);
+            EventBus.off("farm-planted-beans-changed", this.restorePlantedFarmBeans, this);
+            EventBus.off("farm-plant-panel-open-changed", this.handlePlantPanelOpenChanged, this);
         });
         this.scale.on("resize", this.resizeFieldBackground, this);
+        EventBus.on("farm-plant-bean", this.handleFarmPlantBean, this);
+        EventBus.on("farm-planted-beans-changed", this.restorePlantedFarmBeans, this);
+        EventBus.on("farm-plant-panel-open-changed", this.handlePlantPanelOpenChanged, this);
 
         EventBus.emit("current-scene-ready", this);
     }
@@ -44,6 +86,132 @@ export class FarmScene extends Scene {
             .setDepth(-100);
 
         this.resizeFieldBackground();
+    }
+
+    createFarmGroups() {
+        const leftFarmGroupX = (SAFE_AREA_WIDTH - FARM_GROUP_WIDTH * 2 - FARM_GROUP_HORIZONTAL_GAP) / 2 + FARM_GROUP_WIDTH / 2;
+        const rightFarmGroupX = leftFarmGroupX + FARM_GROUP_WIDTH + FARM_GROUP_HORIZONTAL_GAP;
+        const topFarmGroupY = (SAFE_AREA_HEIGHT - FARM_GROUP_HEIGHT * 2 - FARM_GROUP_VERTICAL_GAP) / 2 + FARM_GROUP_HEIGHT / 2 - 100;
+        const bottomFarmGroupY = topFarmGroupY + FARM_GROUP_HEIGHT + FARM_GROUP_VERTICAL_GAP;
+        const farmGroupPositions = [
+            {
+                x: leftFarmGroupX,
+                y: topFarmGroupY
+            },
+            {
+                x: rightFarmGroupX,
+                y: topFarmGroupY
+            },
+            {
+                x: leftFarmGroupX,
+                y: bottomFarmGroupY
+            },
+            {
+                x: rightFarmGroupX,
+                y: bottomFarmGroupY
+            }
+        ];
+
+        farmGroupPositions.forEach((position, farmGroupIndex) => {
+            const farmGroup = this.add
+                .container(position.x, position.y)
+                .setDepth(FARM_GROUP_DEPTH);
+
+            farmGroupCorners.forEach((corner) => {
+                this.createFarmPlantButton(farmGroup, farmGroupIndex, corner);
+            });
+        });
+    }
+
+    createFarmPlantButton(farmGroup: GameObjects.Container, farmGroupIndex: number, corner: FarmGroupCorner) {
+        const horizontalDirection = corner.endsWith("right") ? 1 : -1;
+        const verticalDirection = corner.startsWith("bottom") ? 1 : -1;
+        const buttonX = horizontalDirection * (FARM_GROUP_WIDTH / 2 - FARM_PLANT_BUTTON_INSET);
+        const buttonY = verticalDirection * (FARM_GROUP_HEIGHT / 2 - FARM_PLANT_BUTTON_INSET);
+        const buttonRadius = FARM_PLANT_BUTTON_SIZE / 2;
+        const slotId = `farm-${farmGroupIndex + 1}-${corner}`;
+        const buttonContainer = this.add.container(buttonX, buttonY);
+        const buttonCircle = this.add
+            .circle(0, 0, buttonRadius, 0xfff2bb, 0.96)
+            .setStrokeStyle(6, 0x7f560f, 1);
+        const buttonLabel = this.add
+            .text(0, -3, "+", {
+                color: "#6d470c",
+                fontFamily: "TmoneyRoundWind, Arial, sans-serif",
+                fontSize: "72px",
+                fontStyle: "bold"
+            })
+            .setOrigin(0.5);
+        const requestPlantSlot = () => {
+
+            EventBus.emit("farm-plant-slot-requested", slotId);
+
+        };
+
+        buttonCircle.setInteractive({ useHandCursor: true }).on("pointerup", requestPlantSlot);
+        buttonLabel.setInteractive({ useHandCursor: true }).on("pointerup", requestPlantSlot);
+        buttonContainer.add([buttonCircle, buttonLabel]);
+
+        this.farmPlantSlots.set(slotId, {
+            id: slotId,
+            x: farmGroup.x + buttonX,
+            y: farmGroup.y + buttonY,
+            button: buttonContainer,
+            buttonCircle,
+            buttonLabel,
+            plantedBeanImage: null
+        });
+
+        farmGroup.add(buttonContainer);
+    }
+
+    handlePlantPanelOpenChanged(isOpen: boolean) {
+        this.isPlantPanelOpen = isOpen;
+
+        this.farmPlantSlots.forEach((slot) => {
+            this.updateFarmPlantSlotInteractivity(slot);
+        });
+    }
+
+    updateFarmPlantSlotInteractivity(slot: FarmPlantSlot) {
+        if (slot.plantedBeanImage || this.isPlantPanelOpen) {
+            slot.buttonCircle.disableInteractive();
+            slot.buttonLabel.disableInteractive();
+            return;
+        }
+
+        slot.buttonCircle.setInteractive({ useHandCursor: true });
+        slot.buttonLabel.setInteractive({ useHandCursor: true });
+    }
+
+    handleFarmPlantBean(payload: FarmPlantBeanPayload) {
+        this.renderPlantedFarmBean(payload);
+    }
+
+    restorePlantedFarmBeans(plantedBeans: PlantedFarmBean[]) {
+        plantedBeans.forEach((plantedBean) => {
+            this.renderPlantedFarmBean(plantedBean);
+        });
+    }
+
+    renderPlantedFarmBean(payload: FarmPlantBeanPayload) {
+        const slot = this.farmPlantSlots.get(payload.slotId);
+
+        if (!slot || !this.textures.exists(payload.bean.textureKey)) {
+            return;
+        }
+
+        const textureFrame = this.textures.getFrame(payload.bean.textureKey);
+
+        slot.button.setVisible(false);
+        this.updateFarmPlantSlotInteractivity(slot);
+        slot.plantedBeanImage?.destroy();
+        slot.plantedBeanImage = this.add
+            .image(slot.x, slot.y + FARM_PLANTED_BEAN_SIZE / 4, payload.bean.textureKey)
+            .setOrigin(0.5, 1)
+            .setCrop(0, 0, textureFrame.width, textureFrame.height / 2)
+            .setDisplaySize(FARM_PLANTED_BEAN_SIZE, FARM_PLANTED_BEAN_SIZE)
+            .setDepth(FARM_GROUP_DEPTH + 2);
     }
 
     resizeFieldBackground() {

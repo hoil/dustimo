@@ -1,11 +1,14 @@
 <script lang="ts">
 
+    import type { BeanDefinition } from "../beans";
     import { ROSTER_PREVIEW_HEIGHT } from "../rosterLayout";
 
-    const rosterBeans = Array.from({ length: 60 }, (_, index) => ({
-        id: `bean-${index + 1}`,
-        name: `콩 ${index + 1}`
-    }));
+    export let ownedBeans: readonly BeanDefinition[] = [];
+    export let selectedBeanId: string | null = null;
+    export let onSelectBean: (beanId: string) => void;
+
+    const rosterSlotCount = 60;
+    $: rosterSlots = Array.from({ length: rosterSlotCount }, (_, index) => ownedBeans[index] ?? null);
 
 </script>
 
@@ -30,10 +33,21 @@
 
     <div class="roster-scroll">
         <div class="roster-grid">
-            {#each rosterBeans as bean}
-                <button class="roster-card" type="button" aria-label={`${bean.name} 선택`}>
+            {#each rosterSlots as bean, index}
+                <button
+                    class:roster-card-selected={bean?.id === selectedBeanId}
+                    class:roster-card-empty={!bean}
+                    class="roster-card"
+                    type="button"
+                    aria-label={bean ? `${bean.name} 선택` : `빈 동료 칸 ${index + 1}`}
+                    aria-pressed={bean ? bean.id === selectedBeanId : undefined}
+                    disabled={!bean}
+                    onclick={() => bean && onSelectBean(bean.id)}
+                >
                     <span class="roster-portrait" aria-hidden="true">
-                        <span class="roster-portrait-number">{bean.id.replace("bean-", "")}</span>
+                        {#if bean}
+                            <img class="roster-bean-image" src={bean.imageUrl} alt="" draggable="false" />
+                        {/if}
                     </span>
                 </button>
             {/each}
@@ -135,6 +149,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
+        box-sizing: border-box;
         width: 100%;
         height: auto;
         min-width: 0;
@@ -154,17 +169,38 @@
         appearance: none;
     }
 
-    .roster-card:active {
+    .roster-card-selected {
+        border-color: #ffde45;
+        background: #fff0a8;
+        box-shadow:
+            0 8px 0 rgba(155, 105, 0, 0.36),
+            0 0 0 6px rgba(255, 177, 33, 0.48) inset;
+    }
+
+    .roster-card-empty {
+        cursor: default;
+        opacity: 0.72;
+    }
+
+    .roster-card:disabled {
+        pointer-events: none;
+    }
+
+    .roster-card:not(:disabled):active {
         transform: translateY(5px);
         box-shadow: 0 3px 0 rgba(91, 57, 0, 0.28);
     }
 
     .roster-portrait {
         display: flex;
+        flex: 0 0 auto;
         align-items: center;
         justify-content: center;
+        box-sizing: border-box;
         width: 100%;
-        height: 100%;
+        height: auto;
+        aspect-ratio: 1 / 1;
+        overflow: hidden;
         border-radius: 18px;
         background: #7f5b1e52;
         color: #5b3900;
@@ -174,8 +210,12 @@
         line-height: 1;
     }
 
-    .roster-portrait-number {
+    .roster-bean-image {
         display: block;
-        transform: translateY(2px);
+        width: 86%;
+        height: 86%;
+        object-fit: contain;
+        user-select: none;
+        -webkit-user-drag: none;
     }
 </style>

@@ -4,6 +4,7 @@ export const domInitialAssetUrls = [
     "/assets/character.png",
     "/assets/logo.png",
     "/assets/tutorial_bean.png",
+    "/assets/beans/bean_1.png",
     "/assets/bottom_menu/frame.png",
     "/assets/bottom_menu/roster_icon.png",
     "/assets/bottom_menu/farm_icon.png",

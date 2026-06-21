@@ -6,9 +6,13 @@
     import { EventBus } from "../game/EventBus";
     import {
         clearGameStorage,
+        getOrCreateOwnedBeans,
         getOrCreateGameUid,
+        getPlantedFarmBeans,
         hasSeenGameTutorial,
-        markGameTutorialSeen
+        markGameTutorialSeen,
+        saveOwnedBeans,
+        savePlantedFarmBeans
     } from "../lib/gameStorage";
     import { SAFE_AREA_HEIGHT, SAFE_AREA_WIDTH } from "../game/SafeArea";
     import {
@@ -26,6 +30,7 @@
     import DebugPanel from "../lib/components/DebugPanel.svelte";
     import StartScreen from "../lib/components/StartScreen.svelte";
     import LoadingOverlay from "../lib/components/LoadingOverlay.svelte";
+    import FarmBeanSelectPanel from "../lib/components/FarmBeanSelectPanel.svelte";
     import RosterPanel from "../lib/components/RosterPanel.svelte";
     import TutorialOverlay from "../lib/components/TutorialOverlay.svelte";
     import LoginToast from "../lib/components/LoginToast.svelte";
@@ -34,6 +39,12 @@
         createInitialPopupQueue,
         type InitialPopupDefinition
     } from "../lib/initialPopups";
+    import {
+        getLastOwnedBeanId,
+        initialOwnedBeans,
+        type BeanDefinition,
+        type PlantedFarmBean
+    } from "../lib/beans";
 
     type PerformanceMemory = {
         usedJSHeapSize: number;
@@ -100,10 +111,17 @@
     let loginToastHideTimeoutId: number | null = null;
     let debugFpsText = "FPS: -";
     let debugMemoryText = "Memory: -";
+    let ownedBeans: BeanDefinition[] = initialOwnedBeans.map((bean) => ({ ...bean }));
+    let selectedRosterBeanId: string | null = getLastOwnedBeanId(ownedBeans);
+    let plantedFarmBeans: PlantedFarmBean[] = [];
+    let activeFarmPlantSlotId: string | null = null;
     $: EventBus.emit("debug-safe-area-changed", isSafeAreaDebugEnabled);
     $: EventBus.emit("debug-full-area-changed", isFullAreaDebugEnabled);
     $: activeInitialPopup = initialPopupQueue[0] ?? null;
     $: isInitialPopupFlowActive = initialPopupQueue.length > 0;
+    $: selectedRosterBean = ownedBeans.find((bean) => bean.id === selectedRosterBeanId) ?? null;
+    $: EventBus.emit("roster-selected-bean-changed", selectedRosterBean);
+    $: EventBus.emit("farm-plant-panel-open-changed", activeFarmPlantSlotId !== null);
 
     const updateGameFrame = () => {
 
@@ -419,6 +437,8 @@
 
     const selectMainTab = (tabKey: MainTabKey) => {
 
+        activeFarmPlantSlotId = null;
+
         if (tabKey === shopTabKey && activeMainTab !== shopTabKey)
         {
 
@@ -465,6 +485,55 @@
 
         playPopSound();
         returnFromShopTab();
+
+    };
+
+    const selectRosterBean = (beanId: string) => {
+
+        selectedRosterBeanId = beanId;
+
+    };
+
+    const openFarmBeanSelectPanel = (slotId: string) => {
+
+        activeFarmPlantSlotId = slotId;
+
+    };
+
+    const closeFarmBeanSelectPanel = () => {
+
+        activeFarmPlantSlotId = null;
+
+    };
+
+    const plantSelectedBeanInActiveFarmSlot = (bean: BeanDefinition) => {
+
+        if (!activeFarmPlantSlotId)
+        {
+
+            return;
+
+        }
+
+        EventBus.emit("farm-plant-bean", {
+            slotId: activeFarmPlantSlotId,
+            bean
+        });
+
+        const nextOwnedBeans = ownedBeans.filter((ownedBean) => ownedBean.id !== bean.id);
+        const nextPlantedFarmBeans = [
+            ...plantedFarmBeans.filter((plantedBean) => plantedBean.slotId !== activeFarmPlantSlotId),
+            {
+                slotId: activeFarmPlantSlotId,
+                bean
+            }
+        ];
+
+        ownedBeans = nextOwnedBeans;
+        plantedFarmBeans = nextPlantedFarmBeans;
+        selectedRosterBeanId = getLastOwnedBeanId(nextOwnedBeans);
+        saveOwnedBeans(nextOwnedBeans);
+        savePlantedFarmBeans(nextPlantedFarmBeans);
 
     };
 
@@ -548,6 +617,9 @@
         };
 
         gameUid = getOrCreateGameUid();
+        ownedBeans = getOrCreateOwnedBeans();
+        plantedFarmBeans = getPlantedFarmBeans();
+        selectedRosterBeanId = getLastOwnedBeanId(ownedBeans);
 
         scheduleGameFrameUpdate();
 
@@ -559,6 +631,7 @@
         debugUpdateIntervalId = window.setInterval(updateDebugStatus, 500);
         EventBus.on("phaser-loading-progress", handlePhaserLoadingProgress);
         EventBus.on("phaser-loading-complete", handlePhaserLoadingComplete);
+        EventBus.on("farm-plant-slot-requested", openFarmBeanSelectPanel);
 
         window.addEventListener("resize", scheduleGameFrameUpdate);
         window.visualViewport?.addEventListener("resize", scheduleGameFrameUpdate);
@@ -607,6 +680,7 @@
             resizeObserver.disconnect();
             EventBus.off("phaser-loading-progress", handlePhaserLoadingProgress);
             EventBus.off("phaser-loading-complete", handlePhaserLoadingComplete);
+            EventBus.off("farm-plant-slot-requested", openFarmBeanSelectPanel);
 
         };
 
@@ -635,6 +709,20 @@
         loadingProgress = 1;
         isLoadingOverlayVisible = false;
 
+        if (scene.scene.key === "RosterScene")
+        {
+
+            EventBus.emit("roster-selected-bean-changed", selectedRosterBean);
+
+        }
+
+        if (scene.scene.key === "FarmScene")
+        {
+
+            EventBus.emit("farm-planted-beans-changed", plantedFarmBeans);
+
+        }
+
     };
 
 </script>
@@ -654,7 +742,20 @@
             <div class="dom-coordinate-layer">
                 {#if !isShopTabActive}
                     {#if activeMainTab === "roster"}
-                        <RosterPanel />
+                        <RosterPanel
+                            {ownedBeans}
+                            selectedBeanId={selectedRosterBeanId}
+                            onSelectBean={selectRosterBean}
+                        />
+                    {/if}
+
+                    {#if activeMainTab === "farm" && activeFarmPlantSlotId}
+                        <FarmBeanSelectPanel
+                            {ownedBeans}
+                            selectedBeanId={selectedRosterBeanId}
+                            onSelectBean={plantSelectedBeanInActiveFarmSlot}
+                            onClose={closeFarmBeanSelectPanel}
+                        />
                     {/if}
 
                     <BottomMenu

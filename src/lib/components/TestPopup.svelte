@@ -75,7 +75,7 @@
         font-family: "TmoneyRoundWind", sans-serif;
         pointer-events: auto;
         transform-origin: center;
-        animation: popup-scale-in 260ms cubic-bezier(0.18, 0.89, 0.32, 1.28) both;
+        animation: popup-scale-in 300ms cubic-bezier(0.18, 0.89, 0.32, 1.28) both;
     }
 
     .popup-background {
@@ -164,7 +164,7 @@
     @keyframes popup-scale-in {
         from {
             opacity: 0;
-            transform: scale(0.86);
+            transform: scale(0.4);
         }
 
         to {
