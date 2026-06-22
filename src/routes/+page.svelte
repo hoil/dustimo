@@ -84,6 +84,7 @@
     const LOADING_PROGRESS_READY_DISPLAY_LIMIT = 0.95;
     const LOADING_COMPLETE_TWEEN_DURATION = 450;
     const tutorialMessage = "안녕하세요! 저는 튜토리얼콩이에요. 튜토리얼 대본을 완성하면 다시 돌아올게요. 안녕히계세요!";
+    const lockedMainTabs: MainTabKey[] = ["roster", "battle", "plaza", "shop"];
 
     let isGameFrameReady = false;
     let gameFrameStyle = "";
@@ -775,7 +776,6 @@
                     {#if activeMainTab === "farm" && activeFarmPlantSlotId}
                         <FarmBeanSelectPanel
                             {ownedBeans}
-                            selectedBeanId={selectedRosterBeanId}
                             onSelectBean={plantSelectedBeanInActiveFarmSlot}
                             onClose={closeFarmBeanSelectPanel}
                         />
@@ -785,6 +785,7 @@
                         items={bottomMenuItems}
                         activeTab={activeMainTab}
                         pressedTab={pressedBottomMenuTab}
+                        lockedTabs={lockedMainTabs}
                         onSelect={selectMainTabWithSound}
                         onPress={pressBottomMenuButton}
                         onRelease={releaseBottomMenuButton}

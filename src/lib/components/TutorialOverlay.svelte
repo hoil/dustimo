@@ -149,7 +149,7 @@
         min-height: 56px;
         max-width: 100%;
         font-size: 30px;
-        font-weight: 800;
+        font-weight: 400;
         line-height: 1.32;
         word-break: keep-all;
     }

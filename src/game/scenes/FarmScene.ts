@@ -2,6 +2,7 @@ import { Math as PhaserMath, type GameObjects, Scene } from "phaser";
 
 import { EventBus } from "../EventBus";
 import { FIELD_BACKGROUND_TEXTURE_KEY } from "../preloadAssets";
+import { startBackgroundMusic } from "../backgroundMusic";
 import type { PlantedFarmBean } from "../../lib/beans";
 import {
     SAFE_AREA_CENTER_X,
@@ -23,10 +24,12 @@ type FarmPlantSlot = {
     id: string;
     x: number;
     y: number;
+    isLocked: boolean;
     button: GameObjects.Container;
     buttonCircle: GameObjects.Arc;
     buttonLabel: GameObjects.Text;
     plantedBeanImage: GameObjects.Image | null;
+    plantedBeanIdleTween: Phaser.Tweens.Tween | null;
 };
 
 type FarmPlantBeanPayload = {
@@ -39,10 +42,18 @@ const FARM_GROUP_HEIGHT = 300;
 const FARM_GROUP_HORIZONTAL_GAP = 160;
 const FARM_GROUP_VERTICAL_GAP = 220;
 const FARM_GROUP_DEPTH = 20;
+const UNLOCKED_FARM_GROUP_INDEX = 0;
 const FARM_PLANT_BUTTON_SIZE = 78;
 const FARM_PLANT_BUTTON_INSET = 64;
 const FARM_PLANTED_BEAN_SIZE = 126;
+const FARM_PLANTED_BEAN_VERTICAL_OFFSET = FARM_PLANTED_BEAN_SIZE * 0.75;
+const FARM_PLANTED_BEAN_IDLE_SCALE_X_MULTIPLIER = 0.95;
+const FARM_PLANTED_BEAN_IDLE_SCALE_Y_MULTIPLIER = 1.05;
+const FARM_PLANTED_BEAN_IDLE_DURATION = 900;
 const FARM_SEED_BUTTON_SIZE = 96;
+const FARM_LOCK_OVERLAY_WIDTH = FARM_GROUP_WIDTH + 96;
+const FARM_LOCK_OVERLAY_HEIGHT = FARM_GROUP_HEIGHT + 96;
+const FARM_LOCK_OVERLAY_DEPTH = 80;
 const FIELD_BACKGROUND_DISPLAY_WIDTH = 1440;
 
 const farmGroupCorners: FarmGroupCorner[] = [
@@ -66,6 +77,7 @@ export class FarmScene extends Scene {
 
     create() {
         useSafeAreaCamera(this);
+        startBackgroundMusic(this);
         this.createFieldBackground();
         this.createFarmGroups();
         useSafeAreaDebugOverlay(this);
@@ -83,6 +95,7 @@ export class FarmScene extends Scene {
                 this.handlePlantPanelOpenChanged,
                 this
             );
+            this.stopAllPlantedBeanIdleAnimations();
         });
         EventBus.on("farm-plant-bean", this.handleFarmPlantBean, this);
         EventBus.on(
@@ -150,20 +163,31 @@ export class FarmScene extends Scene {
         ];
 
         farmGroupPositions.forEach((position, farmGroupIndex) => {
+            const isLockedFarmGroup = farmGroupIndex !== UNLOCKED_FARM_GROUP_INDEX;
             const farmGroup = this.add
                 .container(position.x, position.y)
                 .setDepth(FARM_GROUP_DEPTH);
 
             farmGroupCorners.forEach((corner) => {
-                this.createFarmPlantButton(farmGroup, farmGroupIndex, corner);
+                this.createFarmPlantButton(
+                    farmGroup,
+                    farmGroupIndex,
+                    corner,
+                    isLockedFarmGroup
+                );
             });
-            this.createFarmSeedButton(farmGroup, farmGroupIndex);
+            this.createFarmSeedButton(farmGroup, farmGroupIndex, isLockedFarmGroup);
+
+            if (isLockedFarmGroup) {
+                this.createFarmLockOverlay(farmGroup);
+            }
         });
     }
 
     createFarmSeedButton(
         farmGroup: GameObjects.Container,
-        farmGroupIndex: number
+        farmGroupIndex: number,
+        isLockedFarmGroup: boolean
     ) {
         const buttonRadius = FARM_SEED_BUTTON_SIZE / 2;
         const seedSlotId = `farm-${farmGroupIndex + 1}-seed`;
@@ -183,12 +207,17 @@ export class FarmScene extends Scene {
             EventBus.emit("farm-seed-slot-requested", seedSlotId);
         };
 
-        buttonCircle
-            .setInteractive({ useHandCursor: true })
-            .on("pointerup", requestSeedSlot);
-        buttonLabel
-            .setInteractive({ useHandCursor: true })
-            .on("pointerup", requestSeedSlot);
+        if (!isLockedFarmGroup) {
+            buttonCircle
+                .setInteractive({ useHandCursor: true })
+                .on("pointerup", requestSeedSlot);
+            buttonLabel
+                .setInteractive({ useHandCursor: true })
+                .on("pointerup", requestSeedSlot);
+        } else {
+            buttonContainer.setAlpha(0.45);
+        }
+
         buttonContainer.add([buttonCircle, buttonLabel]);
         farmGroup.add(buttonContainer);
     }
@@ -196,7 +225,8 @@ export class FarmScene extends Scene {
     createFarmPlantButton(
         farmGroup: GameObjects.Container,
         farmGroupIndex: number,
-        corner: FarmGroupCorner
+        corner: FarmGroupCorner,
+        isLockedFarmGroup: boolean
     ) {
         const horizontalDirection = corner.endsWith("right") ? 1 : -1;
         const verticalDirection = corner.startsWith("bottom") ? 1 : -1;
@@ -224,25 +254,64 @@ export class FarmScene extends Scene {
             EventBus.emit("farm-plant-slot-requested", slotId);
         };
 
-        buttonCircle
-            .setInteractive({ useHandCursor: true })
-            .on("pointerup", requestPlantSlot);
-        buttonLabel
-            .setInteractive({ useHandCursor: true })
-            .on("pointerup", requestPlantSlot);
+        if (!isLockedFarmGroup) {
+            buttonCircle
+                .setInteractive({ useHandCursor: true })
+                .on("pointerup", requestPlantSlot);
+            buttonLabel
+                .setInteractive({ useHandCursor: true })
+                .on("pointerup", requestPlantSlot);
+        } else {
+            buttonContainer.setAlpha(0.45);
+        }
+
         buttonContainer.add([buttonCircle, buttonLabel]);
 
         this.farmPlantSlots.set(slotId, {
             id: slotId,
             x: farmGroup.x + buttonX,
             y: farmGroup.y + buttonY,
+            isLocked: isLockedFarmGroup,
             button: buttonContainer,
             buttonCircle,
             buttonLabel,
             plantedBeanImage: null,
+            plantedBeanIdleTween: null,
         });
 
         farmGroup.add(buttonContainer);
+    }
+
+    createFarmLockOverlay(farmGroup: GameObjects.Container) {
+        const lockFilter = this.add
+            .rectangle(
+                0,
+                0,
+                FARM_LOCK_OVERLAY_WIDTH,
+                FARM_LOCK_OVERLAY_HEIGHT,
+                0x101010,
+                0.46
+            )
+            .setStrokeStyle(8, 0xffffff, 0.26)
+            .setDepth(FARM_LOCK_OVERLAY_DEPTH);
+        const lockIcon = this.add
+            .text(0, -12, "🔒", {
+                fontFamily: "Arial, sans-serif",
+                fontSize: "104px",
+            })
+            .setOrigin(0.5)
+            .setDepth(FARM_LOCK_OVERLAY_DEPTH + 1);
+        const lockLabel = this.add
+            .text(0, 92, "잠김", {
+                color: "#ffffff",
+                fontFamily: "TmoneyRoundWind, Arial, sans-serif",
+                fontSize: "34px",
+                fontStyle: "bold",
+            })
+            .setOrigin(0.5)
+            .setDepth(FARM_LOCK_OVERLAY_DEPTH + 1);
+
+        farmGroup.add([lockFilter, lockIcon, lockLabel]);
     }
 
     handlePlantPanelOpenChanged(isOpen: boolean) {
@@ -254,7 +323,7 @@ export class FarmScene extends Scene {
     }
 
     updateFarmPlantSlotInteractivity(slot: FarmPlantSlot) {
-        if (slot.plantedBeanImage || this.isPlantPanelOpen) {
+        if (slot.isLocked || slot.plantedBeanImage || this.isPlantPanelOpen) {
             slot.buttonCircle.disableInteractive();
             slot.buttonLabel.disableInteractive();
             return;
@@ -285,17 +354,61 @@ export class FarmScene extends Scene {
 
         slot.button.setVisible(false);
         this.updateFarmPlantSlotInteractivity(slot);
+        this.stopPlantedBeanIdleAnimation(slot);
         slot.plantedBeanImage?.destroy();
         slot.plantedBeanImage = this.add
             .image(
                 slot.x,
-                slot.y + FARM_PLANTED_BEAN_SIZE / 4,
+                slot.y + FARM_PLANTED_BEAN_VERTICAL_OFFSET,
                 payload.bean.textureKey
             )
             .setOrigin(0.5, 1)
             .setCrop(0, 0, textureFrame.width, textureFrame.height / 2)
             .setDisplaySize(FARM_PLANTED_BEAN_SIZE, FARM_PLANTED_BEAN_SIZE)
             .setDepth(FARM_GROUP_DEPTH + 2);
+        this.startPlantedBeanIdleAnimation(slot);
+    }
+
+    startPlantedBeanIdleAnimation(slot: FarmPlantSlot) {
+        const plantedBeanImage = slot.plantedBeanImage;
+
+        if (!plantedBeanImage) {
+            return;
+        }
+
+        this.stopPlantedBeanIdleAnimation(slot);
+
+        const baseScaleX = plantedBeanImage.scaleX;
+        const baseScaleY = plantedBeanImage.scaleY;
+
+        slot.plantedBeanIdleTween = this.tweens.add({
+            targets: plantedBeanImage,
+            scaleX: baseScaleX * FARM_PLANTED_BEAN_IDLE_SCALE_X_MULTIPLIER,
+            scaleY: baseScaleY * FARM_PLANTED_BEAN_IDLE_SCALE_Y_MULTIPLIER,
+            duration: FARM_PLANTED_BEAN_IDLE_DURATION,
+            ease: "Sine.easeInOut",
+            yoyo: true,
+            repeat: -1,
+            onStop: () => {
+                plantedBeanImage.setScale(baseScaleX, baseScaleY);
+            },
+        });
+    }
+
+    stopPlantedBeanIdleAnimation(slot: FarmPlantSlot) {
+        if (!slot.plantedBeanIdleTween) {
+            return;
+        }
+
+        slot.plantedBeanIdleTween.stop();
+        slot.plantedBeanIdleTween.remove();
+        slot.plantedBeanIdleTween = null;
+    }
+
+    stopAllPlantedBeanIdleAnimations() {
+        this.farmPlantSlots.forEach((slot) => {
+            this.stopPlantedBeanIdleAnimation(slot);
+        });
     }
 
     fitFieldBackgroundToFixedWidth() {

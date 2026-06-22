@@ -1,7 +1,7 @@
 import { Scene } from "phaser";
 
 import { EventBus } from "../EventBus";
-import { phaserInitialImageAssets } from "../preloadAssets";
+import { phaserInitialAudioAssets, phaserInitialImageAssets } from "../preloadAssets";
 
 export class IntroLoadingScene extends Scene {
     private isPhaserLoadingComplete = false;
@@ -24,6 +24,10 @@ export class IntroLoadingScene extends Scene {
 
         for (const imageAsset of phaserInitialImageAssets) {
             this.load.image(imageAsset.key, imageAsset.url);
+        }
+
+        for (const audioAsset of phaserInitialAudioAssets) {
+            this.load.audio(audioAsset.key, audioAsset.url);
         }
 
         this.load.on("progress", this.handlePhaserLoadingProgress, this);

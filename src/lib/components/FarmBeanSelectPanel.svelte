@@ -6,7 +6,6 @@
     import { ROSTER_PREVIEW_HEIGHT } from "../rosterLayout";
 
     export let ownedBeans: readonly BeanDefinition[] = [];
-    export let selectedBeanId: string | null = null;
     export let onSelectBean: (bean: BeanDefinition) => void;
     export let onClose: () => void;
 
@@ -121,6 +120,12 @@
             </svg>
         </div>
 
+        <div class="bean-select-header">
+            <div class="bean-select-header-text">
+                콩 박기 <span class="bean-select-header-description">(콩의 특성 한 가지가 무작위로 종자에 유전됩니다.)</span>
+            </div>
+        </div>
+
         <button class="bean-select-close-button" type="button" aria-label="콩 선택 취소" onclick={requestClose} disabled={isClosing}>
             ×
         </button>
@@ -129,7 +134,6 @@
             <div class="bean-select-grid">
                 {#each rosterSlots as bean, index}
                     <button
-                        class:bean-select-card-selected={bean?.id === selectedBeanId}
                         class:bean-select-card-empty={!bean}
                         class="bean-select-card"
                         type="button"
@@ -237,6 +241,19 @@
         width: calc(var(--bean-select-frame-border-right) + var(--bean-select-frame-border-overlap));
     }
 
+    .bean-select-header {
+        position: absolute;
+        left: calc(var(--dom-safe-left, 0px) + 34px);
+        top: 64px;
+        right: calc(var(--dom-safe-right, 0px) + 144px);
+        z-index: 4;
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        min-height: 88px;
+        pointer-events: none;
+    }
+
     .bean-select-close-button {
         position: absolute;
         right: calc(var(--dom-safe-right, 0px) + 34px);
@@ -260,6 +277,24 @@
         cursor: pointer;
         pointer-events: auto;
         touch-action: manipulation;
+    }
+
+    .bean-select-header-text {
+        flex: 1 1 auto;
+        min-width: 0;
+        color: #4a2b17;
+        font-family: "TmoneyRoundWind", sans-serif;
+        font-size: 38px;
+        font-weight: 800;
+        line-height: 1.25;
+        text-align: left;
+        text-shadow: 0 3px 0 rgba(255, 255, 255, 0.7);
+        pointer-events: none;
+    }
+
+    .bean-select-header-description {
+        font-size: 27px;
+        font-weight: 800;
     }
 
     .bean-select-scroll {
@@ -311,14 +346,6 @@
         touch-action: manipulation;
         -webkit-appearance: none;
         appearance: none;
-    }
-
-    .bean-select-card-selected {
-        border-color: #ffde45;
-        background: #fff0a8;
-        box-shadow:
-            0 8px 0 rgba(155, 105, 0, 0.36),
-            0 0 0 6px rgba(255, 177, 33, 0.48) inset;
     }
 
     .bean-select-card-empty {

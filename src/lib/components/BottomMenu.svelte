@@ -5,9 +5,16 @@
     export let items: BottomMenuItem[];
     export let activeTab: MainTabKey;
     export let pressedTab: MainTabKey | null;
+    export let lockedTabs: readonly MainTabKey[] = [];
     export let onSelect: (tabKey: MainTabKey) => void;
     export let onPress: (tabKey: MainTabKey) => void;
     export let onRelease: (tabKey: MainTabKey) => void;
+
+    const isTabLocked = (tabKey: MainTabKey) => {
+
+        return lockedTabs.includes(tabKey);
+
+    };
 
 </script>
 
@@ -22,19 +29,25 @@
     />
     <div class="bottom-menu-buttons">
         {#each items as menuItem}
+            {@const isLocked = isTabLocked(menuItem.tabKey)}
             <button
-                class={`bottom-menu-button ${activeTab === menuItem.tabKey ? "bottom-menu-button-active" : ""} ${pressedTab === menuItem.tabKey ? "bottom-menu-button-pressed" : ""}`}
+                class={`bottom-menu-button ${activeTab === menuItem.tabKey ? "bottom-menu-button-active" : ""} ${pressedTab === menuItem.tabKey && !isLocked ? "bottom-menu-button-pressed" : ""} ${isLocked ? "bottom-menu-button-locked" : ""}`}
                 type="button"
                 aria-pressed={activeTab === menuItem.tabKey}
-                onpointerdown={() => onPress(menuItem.tabKey)}
-                onpointerup={() => onRelease(menuItem.tabKey)}
-                onpointerleave={() => onRelease(menuItem.tabKey)}
-                onpointercancel={() => onRelease(menuItem.tabKey)}
-                onblur={() => onRelease(menuItem.tabKey)}
-                onclick={() => onSelect(menuItem.tabKey)}
+                aria-disabled={isLocked}
+                disabled={isLocked}
+                onpointerdown={() => !isLocked && onPress(menuItem.tabKey)}
+                onpointerup={() => !isLocked && onRelease(menuItem.tabKey)}
+                onpointerleave={() => !isLocked && onRelease(menuItem.tabKey)}
+                onpointercancel={() => !isLocked && onRelease(menuItem.tabKey)}
+                onblur={() => !isLocked && onRelease(menuItem.tabKey)}
+                onclick={() => !isLocked && onSelect(menuItem.tabKey)}
             >
                 <span class="bottom-menu-icon-slot" aria-hidden="true">
                     <img class="bottom-menu-icon" src={menuItem.iconSrc} alt="" />
+                    {#if isLocked}
+                        <span class="bottom-menu-lock-badge">🔒</span>
+                    {/if}
                 </span>
                 <span class="bottom-menu-label">{menuItem.label}</span>
             </button>
@@ -77,6 +90,7 @@
     }
 
     .bottom-menu-button {
+        position: relative;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -106,12 +120,17 @@
         will-change: transform;
     }
 
+    .bottom-menu-button:disabled {
+        cursor: not-allowed;
+    }
+
     .bottom-menu-button-pressed {
         transform: translateY(calc(57% - 65px)) scale(0.9);
         transition-duration: 70ms;
     }
 
     .bottom-menu-icon-slot {
+        position: relative;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -131,6 +150,25 @@
         -webkit-user-drag: none;
     }
 
+    .bottom-menu-lock-badge {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 72px;
+        height: 72px;
+        border: 4px solid rgba(255, 255, 255, 0.9);
+        border-radius: 50%;
+        background: rgba(28, 21, 16, 0.72);
+        font-size: 38px;
+        line-height: 1;
+        transform: translate(-50%, -50%);
+        -webkit-text-stroke: 0;
+        pointer-events: none;
+    }
+
     .bottom-menu-label {
         display: block;
         height: 38px;
@@ -142,6 +180,16 @@
         color: #ffe6ba;
         -webkit-text-stroke-color: #5b3900;
         filter: drop-shadow(0 4px 4px rgba(0, 0, 0, 0.25));
+    }
+
+    .bottom-menu-button-locked {
+        color: rgba(255, 255, 255, 0.55);
+        -webkit-text-stroke-color: rgba(82, 72, 63, 0.9);
+        filter: grayscale(1) brightness(0.62);
+    }
+
+    .bottom-menu-button-locked .bottom-menu-icon {
+        opacity: 0.5;
     }
 
 </style>
