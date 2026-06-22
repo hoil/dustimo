@@ -14,7 +14,11 @@ import {
 
 type LogoPositionCallback = ({ x, y }: { x: number; y: number }) => void;
 
-type FarmGroupCorner = "top-left" | "top-right" | "bottom-left" | "bottom-right";
+type FarmGroupCorner =
+    | "top-left"
+    | "top-right"
+    | "bottom-left"
+    | "bottom-right";
 type FarmPlantSlot = {
     id: string;
     x: number;
@@ -38,12 +42,13 @@ const FARM_GROUP_DEPTH = 20;
 const FARM_PLANT_BUTTON_SIZE = 78;
 const FARM_PLANT_BUTTON_INSET = 64;
 const FARM_PLANTED_BEAN_SIZE = 126;
+const FIELD_BACKGROUND_DISPLAY_WIDTH = 1440;
 
 const farmGroupCorners: FarmGroupCorner[] = [
     "top-left",
     "top-right",
     "bottom-left",
-    "bottom-right"
+    "bottom-right",
 ];
 
 export class FarmScene extends Scene {
@@ -66,50 +71,81 @@ export class FarmScene extends Scene {
 
         // this.createLogo();
         this.events.once("shutdown", () => {
-            this.scale.off("resize", this.resizeFieldBackground, this);
             EventBus.off("farm-plant-bean", this.handleFarmPlantBean, this);
-            EventBus.off("farm-planted-beans-changed", this.restorePlantedFarmBeans, this);
-            EventBus.off("farm-plant-panel-open-changed", this.handlePlantPanelOpenChanged, this);
+            EventBus.off(
+                "farm-planted-beans-changed",
+                this.restorePlantedFarmBeans,
+                this
+            );
+            EventBus.off(
+                "farm-plant-panel-open-changed",
+                this.handlePlantPanelOpenChanged,
+                this
+            );
         });
-        this.scale.on("resize", this.resizeFieldBackground, this);
         EventBus.on("farm-plant-bean", this.handleFarmPlantBean, this);
-        EventBus.on("farm-planted-beans-changed", this.restorePlantedFarmBeans, this);
-        EventBus.on("farm-plant-panel-open-changed", this.handlePlantPanelOpenChanged, this);
+        EventBus.on(
+            "farm-planted-beans-changed",
+            this.restorePlantedFarmBeans,
+            this
+        );
+        EventBus.on(
+            "farm-plant-panel-open-changed",
+            this.handlePlantPanelOpenChanged,
+            this
+        );
 
         EventBus.emit("current-scene-ready", this);
     }
 
     createFieldBackground() {
         this.fieldBackground = this.add
-            .image(SAFE_AREA_CENTER_X, SAFE_AREA_CENTER_Y, FIELD_BACKGROUND_TEXTURE_KEY)
+            .image(
+                SAFE_AREA_CENTER_X,
+                SAFE_AREA_CENTER_Y,
+                FIELD_BACKGROUND_TEXTURE_KEY
+            )
             .setOrigin(0.5)
             .setDepth(-100);
 
-        this.resizeFieldBackground();
+        this.fitFieldBackgroundToFixedWidth();
     }
 
     createFarmGroups() {
-        const leftFarmGroupX = (SAFE_AREA_WIDTH - FARM_GROUP_WIDTH * 2 - FARM_GROUP_HORIZONTAL_GAP) / 2 + FARM_GROUP_WIDTH / 2;
-        const rightFarmGroupX = leftFarmGroupX + FARM_GROUP_WIDTH + FARM_GROUP_HORIZONTAL_GAP;
-        const topFarmGroupY = (SAFE_AREA_HEIGHT - FARM_GROUP_HEIGHT * 2 - FARM_GROUP_VERTICAL_GAP) / 2 + FARM_GROUP_HEIGHT / 2 - 100;
-        const bottomFarmGroupY = topFarmGroupY + FARM_GROUP_HEIGHT + FARM_GROUP_VERTICAL_GAP;
+        const leftFarmGroupX =
+            (SAFE_AREA_WIDTH -
+                FARM_GROUP_WIDTH * 2 -
+                FARM_GROUP_HORIZONTAL_GAP) /
+                2 +
+            FARM_GROUP_WIDTH / 2;
+        const rightFarmGroupX =
+            leftFarmGroupX + FARM_GROUP_WIDTH + FARM_GROUP_HORIZONTAL_GAP;
+        const topFarmGroupY =
+            (SAFE_AREA_HEIGHT -
+                FARM_GROUP_HEIGHT * 2 -
+                FARM_GROUP_VERTICAL_GAP) /
+                2 +
+            FARM_GROUP_HEIGHT / 2 -
+            100;
+        const bottomFarmGroupY =
+            topFarmGroupY + FARM_GROUP_HEIGHT + FARM_GROUP_VERTICAL_GAP;
         const farmGroupPositions = [
             {
                 x: leftFarmGroupX,
-                y: topFarmGroupY
+                y: topFarmGroupY,
             },
             {
                 x: rightFarmGroupX,
-                y: topFarmGroupY
+                y: topFarmGroupY,
             },
             {
                 x: leftFarmGroupX,
-                y: bottomFarmGroupY
+                y: bottomFarmGroupY,
             },
             {
                 x: rightFarmGroupX,
-                y: bottomFarmGroupY
-            }
+                y: bottomFarmGroupY,
+            },
         ];
 
         farmGroupPositions.forEach((position, farmGroupIndex) => {
@@ -123,11 +159,19 @@ export class FarmScene extends Scene {
         });
     }
 
-    createFarmPlantButton(farmGroup: GameObjects.Container, farmGroupIndex: number, corner: FarmGroupCorner) {
+    createFarmPlantButton(
+        farmGroup: GameObjects.Container,
+        farmGroupIndex: number,
+        corner: FarmGroupCorner
+    ) {
         const horizontalDirection = corner.endsWith("right") ? 1 : -1;
         const verticalDirection = corner.startsWith("bottom") ? 1 : -1;
-        const buttonX = horizontalDirection * (FARM_GROUP_WIDTH / 2 - FARM_PLANT_BUTTON_INSET);
-        const buttonY = verticalDirection * (FARM_GROUP_HEIGHT / 2 - FARM_PLANT_BUTTON_INSET);
+        const buttonX =
+            horizontalDirection *
+            (FARM_GROUP_WIDTH / 2 - FARM_PLANT_BUTTON_INSET);
+        const buttonY =
+            verticalDirection *
+            (FARM_GROUP_HEIGHT / 2 - FARM_PLANT_BUTTON_INSET);
         const buttonRadius = FARM_PLANT_BUTTON_SIZE / 2;
         const slotId = `farm-${farmGroupIndex + 1}-${corner}`;
         const buttonContainer = this.add.container(buttonX, buttonY);
@@ -139,17 +183,19 @@ export class FarmScene extends Scene {
                 color: "#6d470c",
                 fontFamily: "TmoneyRoundWind, Arial, sans-serif",
                 fontSize: "72px",
-                fontStyle: "bold"
+                fontStyle: "bold",
             })
             .setOrigin(0.5);
         const requestPlantSlot = () => {
-
             EventBus.emit("farm-plant-slot-requested", slotId);
-
         };
 
-        buttonCircle.setInteractive({ useHandCursor: true }).on("pointerup", requestPlantSlot);
-        buttonLabel.setInteractive({ useHandCursor: true }).on("pointerup", requestPlantSlot);
+        buttonCircle
+            .setInteractive({ useHandCursor: true })
+            .on("pointerup", requestPlantSlot);
+        buttonLabel
+            .setInteractive({ useHandCursor: true })
+            .on("pointerup", requestPlantSlot);
         buttonContainer.add([buttonCircle, buttonLabel]);
 
         this.farmPlantSlots.set(slotId, {
@@ -159,7 +205,7 @@ export class FarmScene extends Scene {
             button: buttonContainer,
             buttonCircle,
             buttonLabel,
-            plantedBeanImage: null
+            plantedBeanImage: null,
         });
 
         farmGroup.add(buttonContainer);
@@ -207,35 +253,30 @@ export class FarmScene extends Scene {
         this.updateFarmPlantSlotInteractivity(slot);
         slot.plantedBeanImage?.destroy();
         slot.plantedBeanImage = this.add
-            .image(slot.x, slot.y + FARM_PLANTED_BEAN_SIZE / 4, payload.bean.textureKey)
+            .image(
+                slot.x,
+                slot.y + FARM_PLANTED_BEAN_SIZE / 4,
+                payload.bean.textureKey
+            )
             .setOrigin(0.5, 1)
             .setCrop(0, 0, textureFrame.width, textureFrame.height / 2)
             .setDisplaySize(FARM_PLANTED_BEAN_SIZE, FARM_PLANTED_BEAN_SIZE)
             .setDepth(FARM_GROUP_DEPTH + 2);
     }
 
-    resizeFieldBackground() {
+    fitFieldBackgroundToFixedWidth() {
         if (!this.fieldBackground) {
             return;
         }
 
-        const textureFrame = this.textures.getFrame(FIELD_BACKGROUND_TEXTURE_KEY);
+        const textureFrame = this.textures.getFrame(
+            FIELD_BACKGROUND_TEXTURE_KEY
+        );
         const imageAspect = textureFrame.width / textureFrame.height;
-        const targetWidth = this.scale.width;
-        const targetHeight = this.scale.height;
-        const targetAspect = targetWidth / targetHeight;
-
-        if (imageAspect > targetAspect) {
-            this.fieldBackground.setDisplaySize(
-                targetHeight * imageAspect,
-                targetHeight
-            );
-            return;
-        }
 
         this.fieldBackground.setDisplaySize(
-            targetWidth,
-            targetWidth / imageAspect
+            FIELD_BACKGROUND_DISPLAY_WIDTH,
+            FIELD_BACKGROUND_DISPLAY_WIDTH / imageAspect
         );
     }
 

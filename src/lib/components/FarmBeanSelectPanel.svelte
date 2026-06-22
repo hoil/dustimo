@@ -180,11 +180,11 @@
         background: transparent;
         box-shadow: 0 -18px 28px rgba(0, 0, 0, 0.18);
         pointer-events: auto;
-        animation: bean-select-slide-in 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+        animation: bean-select-slide-in 350ms cubic-bezier(0.16, 1, 0.3, 1) both;
     }
 
     .bean-select-panel-closing {
-        animation: bean-select-slide-out 240ms cubic-bezier(0.34, 0, 0.2, 1) both;
+        animation: bean-select-slide-out 350ms cubic-bezier(0.34, 0, 0.2, 1) both;
         pointer-events: none;
     }
 

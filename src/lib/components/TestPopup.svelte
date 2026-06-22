@@ -67,10 +67,10 @@
     .test-popup {
         position: absolute;
         left: var(--dom-popup-left, 0px);
-        top: var(--dom-popup-top, 0px);
+        top: calc(var(--dom-popup-top, 0px) + 200px);
         box-sizing: border-box;
         width: var(--dom-popup-width, 1080px);
-        height: var(--dom-popup-height, 1920px);
+        height: 1520px;
         color: #4a2b17;
         font-family: "TmoneyRoundWind", sans-serif;
         pointer-events: auto;
