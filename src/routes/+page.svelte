@@ -7,6 +7,7 @@
     import {
         clearGameStorage,
         getOrCreateOwnedBeans,
+        getOrCreateOwnedSeeds,
         getOrCreateGameUid,
         getPlantedFarmBeans,
         hasSeenGameTutorial,
@@ -31,6 +32,7 @@
     import StartScreen from "../lib/components/StartScreen.svelte";
     import LoadingOverlay from "../lib/components/LoadingOverlay.svelte";
     import FarmBeanSelectPanel from "../lib/components/FarmBeanSelectPanel.svelte";
+    import FarmSeedSelectPopup from "../lib/components/FarmSeedSelectPopup.svelte";
     import RosterPanel from "../lib/components/RosterPanel.svelte";
     import TutorialOverlay from "../lib/components/TutorialOverlay.svelte";
     import LoginToast from "../lib/components/LoginToast.svelte";
@@ -43,6 +45,7 @@
         getLastOwnedBeanId,
         initialOwnedBeans,
         type BeanDefinition,
+        type OwnedSeed,
         type PlantedFarmBean
     } from "../lib/beans";
 
@@ -112,9 +115,11 @@
     let debugFpsText = "FPS: -";
     let debugMemoryText = "Memory: -";
     let ownedBeans: BeanDefinition[] = initialOwnedBeans.map((bean) => ({ ...bean }));
+    let ownedSeeds: OwnedSeed[] = [];
     let selectedRosterBeanId: string | null = getLastOwnedBeanId(ownedBeans);
     let plantedFarmBeans: PlantedFarmBean[] = [];
     let activeFarmPlantSlotId: string | null = null;
+    let activeFarmSeedSlotId: string | null = null;
     $: EventBus.emit("debug-safe-area-changed", isSafeAreaDebugEnabled);
     $: EventBus.emit("debug-full-area-changed", isFullAreaDebugEnabled);
     $: activeInitialPopup = initialPopupQueue[0] ?? null;
@@ -439,6 +444,7 @@
 
         activeFarmPlantSlotId = null;
 
+        activeFarmSeedSlotId = null;
         if (tabKey === shopTabKey && activeMainTab !== shopTabKey)
         {
 
@@ -497,12 +503,26 @@
     const openFarmBeanSelectPanel = (slotId: string) => {
 
         activeFarmPlantSlotId = slotId;
+        activeFarmSeedSlotId = null;
 
     };
 
     const closeFarmBeanSelectPanel = () => {
 
         activeFarmPlantSlotId = null;
+
+    };
+
+    const openFarmSeedSelectPopup = (slotId: string) => {
+
+        activeFarmSeedSlotId = slotId;
+        activeFarmPlantSlotId = null;
+
+    };
+
+    const closeFarmSeedSelectPopup = () => {
+
+        activeFarmSeedSlotId = null;
 
     };
 
@@ -618,6 +638,7 @@
 
         gameUid = getOrCreateGameUid();
         ownedBeans = getOrCreateOwnedBeans();
+        ownedSeeds = getOrCreateOwnedSeeds();
         plantedFarmBeans = getPlantedFarmBeans();
         selectedRosterBeanId = getLastOwnedBeanId(ownedBeans);
 
@@ -632,6 +653,7 @@
         EventBus.on("phaser-loading-progress", handlePhaserLoadingProgress);
         EventBus.on("phaser-loading-complete", handlePhaserLoadingComplete);
         EventBus.on("farm-plant-slot-requested", openFarmBeanSelectPanel);
+        EventBus.on("farm-seed-slot-requested", openFarmSeedSelectPopup);
 
         window.addEventListener("resize", scheduleGameFrameUpdate);
         window.visualViewport?.addEventListener("resize", scheduleGameFrameUpdate);
@@ -681,6 +703,7 @@
             EventBus.off("phaser-loading-progress", handlePhaserLoadingProgress);
             EventBus.off("phaser-loading-complete", handlePhaserLoadingComplete);
             EventBus.off("farm-plant-slot-requested", openFarmBeanSelectPanel);
+            EventBus.off("farm-seed-slot-requested", openFarmSeedSelectPopup);
 
         };
 
@@ -812,6 +835,13 @@
 
         {#if isGameFrameReady && hasGameStarted && activeInitialPopup?.key === "test-popup" && !isLoadingOverlayVisible}
             <TestPopup onClose={closeActiveInitialPopup} />
+        {/if}
+
+        {#if isGameFrameReady && hasGameStarted && activeFarmSeedSlotId && !isLoadingOverlayVisible}
+            <FarmSeedSelectPopup
+                {ownedSeeds}
+                onClose={closeFarmSeedSelectPopup}
+            />
         {/if}
 
         {#if isGameFrameReady && hasGameStarted && isTutorialOverlayVisible && !isLoadingOverlayVisible && !isInitialPopupFlowActive}

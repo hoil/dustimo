@@ -42,6 +42,7 @@ const FARM_GROUP_DEPTH = 20;
 const FARM_PLANT_BUTTON_SIZE = 78;
 const FARM_PLANT_BUTTON_INSET = 64;
 const FARM_PLANTED_BEAN_SIZE = 126;
+const FARM_SEED_BUTTON_SIZE = 96;
 const FIELD_BACKGROUND_DISPLAY_WIDTH = 1440;
 
 const farmGroupCorners: FarmGroupCorner[] = [
@@ -156,7 +157,40 @@ export class FarmScene extends Scene {
             farmGroupCorners.forEach((corner) => {
                 this.createFarmPlantButton(farmGroup, farmGroupIndex, corner);
             });
+            this.createFarmSeedButton(farmGroup, farmGroupIndex);
         });
+    }
+
+    createFarmSeedButton(
+        farmGroup: GameObjects.Container,
+        farmGroupIndex: number
+    ) {
+        const buttonRadius = FARM_SEED_BUTTON_SIZE / 2;
+        const seedSlotId = `farm-${farmGroupIndex + 1}-seed`;
+        const buttonContainer = this.add.container(0, 0);
+        const buttonCircle = this.add
+            .circle(0, 0, buttonRadius, 0xffdf3d, 0.98)
+            .setStrokeStyle(8, 0x9a6a00, 1);
+        const buttonLabel = this.add
+            .text(0, -4, "+", {
+                color: "#6d470c",
+                fontFamily: "TmoneyRoundWind, Arial, sans-serif",
+                fontSize: "88px",
+                fontStyle: "bold",
+            })
+            .setOrigin(0.5);
+        const requestSeedSlot = () => {
+            EventBus.emit("farm-seed-slot-requested", seedSlotId);
+        };
+
+        buttonCircle
+            .setInteractive({ useHandCursor: true })
+            .on("pointerup", requestSeedSlot);
+        buttonLabel
+            .setInteractive({ useHandCursor: true })
+            .on("pointerup", requestSeedSlot);
+        buttonContainer.add([buttonCircle, buttonLabel]);
+        farmGroup.add(buttonContainer);
     }
 
     createFarmPlantButton(
