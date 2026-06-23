@@ -44,6 +44,8 @@
             <p class="popup-description">
                 초기 접속 팝업 플로우 테스트입니다.<br />
                 우선순위 순서대로 팝업을 띄우는 DOM UI 구조로 동작합니다.
+                <br /><br />
+                일단 접속 때마다 뜨게 해놓았어요.
             </p>
         </div>
     </section>
@@ -210,7 +212,7 @@
         height: 100%;
         flex-direction: column;
         align-items: center;
-        padding-top: 700px;
+        padding-top: 250px;
         text-align: center;
     }
 

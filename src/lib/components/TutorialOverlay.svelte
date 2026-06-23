@@ -199,7 +199,7 @@
     .tutorial-dialog {
         position: relative;
         width: min(600px, calc(var(--dom-ui-width, 1080px) - 330px));
-        min-height: 176px;
+        min-height: 254px;
         margin-top: 20px;
         padding: 34px 34px 30px;
         border: 6px solid #8e5c04;
@@ -227,7 +227,7 @@
     .tutorial-dialog-text {
         position: relative;
         z-index: 1;
-        min-height: 56px;
+        min-height: 119px;
         max-width: 100%;
         font-size: 30px;
         font-weight: 400;

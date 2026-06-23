@@ -1,6 +1,10 @@
 <script lang="ts">
 
+    import BeanGeneList from "./BeanGeneList.svelte";
+    import type { BeanGeneDefinition } from "../beans";
+
     export let beanImageUrl = "/assets/beans/bean_1.png";
+    export let genes: readonly BeanGeneDefinition[] = [];
     export let isReturnDisabled = false;
     export let onReturn: () => void = () => {};
     export let onAdd: () => void;
@@ -19,6 +23,10 @@
             </div>
             <div class="harvest-burst"></div>
             <img class="harvest-bean" src={beanImageUrl} alt="" draggable="false" />
+        </div>
+
+        <div class="harvest-gene-list">
+            <BeanGeneList {genes} />
         </div>
 
         <div class="harvest-actions">
@@ -166,11 +174,21 @@
     .harvest-actions {
         position: absolute;
         left: 50%;
-        top: calc(50% + 255px);
+        top: calc(50% + 540px);
         display: flex;
         justify-content: center;
         gap: 48px;
         box-sizing: border-box;
+        transform: translateX(-50%);
+        opacity: 0;
+        pointer-events: none;
+        animation: harvest-actions-in 220ms ease-out 1.55s forwards;
+    }
+
+    .harvest-gene-list {
+        position: absolute;
+        left: 50%;
+        top: calc(50% + 210px);
         transform: translateX(-50%);
         opacity: 0;
         pointer-events: none;

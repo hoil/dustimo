@@ -1,6 +1,7 @@
 import {
     initialOwnedBeans,
     initialOwnedSeeds,
+    normalizeBeanGenes,
     type BeanDefinition,
     type OwnedSeed,
     type PlantedFarmBean,
@@ -17,8 +18,13 @@ const GAME_PLANTED_FARM_SEEDS_STORAGE_KEY = `${GAME_STORAGE_PREFIX}planted-farm-
 const GAME_ROSTER_TAB_UNLOCKED_STORAGE_KEY = `${GAME_STORAGE_PREFIX}roster-tab-unlocked`;
 const GAME_ROSTER_TAB_UNREAD_STORAGE_KEY = `${GAME_STORAGE_PREFIX}roster-tab-unread`;
 
+const cloneBeanDefinition = (bean: BeanDefinition): BeanDefinition => ({
+    ...bean,
+    genes: bean.genes.map((gene) => ({ ...gene })),
+});
+
 const createInitialOwnedBeans = (): BeanDefinition[] => {
-    return initialOwnedBeans.map((bean) => ({ ...bean }));
+    return initialOwnedBeans.map(cloneBeanDefinition);
 };
 
 const createInitialOwnedSeeds = (): OwnedSeed[] => {
@@ -43,6 +49,11 @@ const isBeanDefinition = (value: unknown): value is BeanDefinition => {
     );
 };
 
+const normalizeBeanDefinition = (bean: BeanDefinition): BeanDefinition => ({
+    ...bean,
+    genes: normalizeBeanGenes((bean as Record<string, unknown>).genes),
+});
+
 const parseOwnedBeans = (rawValue: string | null) => {
     if (!rawValue) {
         return null;
@@ -58,7 +69,7 @@ const parseOwnedBeans = (rawValue: string | null) => {
             return null;
         }
 
-        return parsedValue;
+        return parsedValue.map(normalizeBeanDefinition);
     } catch {
         return null;
     }
@@ -149,7 +160,10 @@ const parsePlantedFarmBeans = (rawValue: string | null) => {
             return [];
         }
 
-        return parsedValue;
+        return parsedValue.map((plantedBean) => ({
+            ...plantedBean,
+            bean: normalizeBeanDefinition(plantedBean.bean),
+        }));
     } catch {
         return [];
     }

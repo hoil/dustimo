@@ -42,6 +42,7 @@
     import FarmBeanSelectPanel from "../lib/components/FarmBeanSelectPanel.svelte";
     import FarmHarvestPopup from "../lib/components/FarmHarvestPopup.svelte";
     import FarmSeedSelectPopup from "../lib/components/FarmSeedSelectPopup.svelte";
+    import BeanGeneList from "../lib/components/BeanGeneList.svelte";
     import ProfileHud from "../lib/components/ProfileHud.svelte";
     import SettingsButton from "../lib/components/SettingsButton.svelte";
     import SettingsPopup from "../lib/components/SettingsPopup.svelte";
@@ -55,7 +56,7 @@
     } from "../lib/initialPopups";
     import {
         getLastOwnedBeanId,
-        initialOwnedBeans,
+        createRandomBeanGenes,
         TUTORIAL_SEED_ID,
         type BeanDefinition,
         type OwnedSeed,
@@ -161,7 +162,7 @@
     let loginToastHideTimeoutId: number | null = null;
     let debugFpsText = "FPS: -";
     let debugMemoryText = "Memory: -";
-    let ownedBeans: BeanDefinition[] = initialOwnedBeans.map((bean) => ({ ...bean }));
+    let ownedBeans: BeanDefinition[] = [];
     let ownedSeeds: OwnedSeed[] = [];
     let selectedRosterBeanId: string | null = getLastOwnedBeanId(ownedBeans);
     let plantedFarmBeans: PlantedFarmBean[] = [];
@@ -169,9 +170,12 @@
     let activeFarmPlantSlotId: string | null = null;
     let activeFarmSeedSlotId: string | null = null;
     let activeHarvestSeed: PlantedFarmSeed | null = null;
+    let activeHarvestedBean: BeanDefinition | null = null;
     let isSettingsPopupVisible = false;
     let isSettingsShortcutPanelExpanded = true;
     let activeSettingsShortcutPopup: "inbox" | "tester-thanks" | "game-summary" | null = null;
+    let lockedMainTabs: MainTabKey[] = [];
+    let unreadMainTabs: MainTabKey[] = [];
     $: EventBus.emit("debug-safe-area-changed", isSafeAreaDebugEnabled);
     $: EventBus.emit("debug-full-area-changed", isFullAreaDebugEnabled);
     $: activePopup = popupQueue[0] ?? null;
@@ -650,6 +654,7 @@
     const openFarmHarvestPopup = (plantedSeed: PlantedFarmSeed) => {
 
         activeHarvestSeed = plantedSeed;
+        activeHarvestedBean = createHarvestedBean(plantedSeed);
 
     };
 
@@ -659,7 +664,8 @@
             id: `${plantedSeed.seed.textureKey}-harvested-${Date.now()}`,
             name: plantedSeed.seed.name.replace(/\s*종자$/, "") || "완두콩",
             imageUrl: plantedSeed.seed.imageUrl,
-            textureKey: plantedSeed.seed.textureKey
+            textureKey: plantedSeed.seed.textureKey,
+            genes: createRandomBeanGenes()
         };
 
     };
@@ -674,7 +680,7 @@
         }
 
         const harvestedSeed = activeHarvestSeed;
-        const harvestedBean = createHarvestedBean(harvestedSeed);
+        const harvestedBean = activeHarvestedBean ?? createHarvestedBean(harvestedSeed);
         const nextOwnedBeans = [...ownedBeans, harvestedBean];
         const nextPlantedFarmSeeds = plantedFarmSeeds.filter(
             (plantedSeed) => plantedSeed.seedSlotId !== harvestedSeed.seedSlotId
@@ -684,6 +690,7 @@
         plantedFarmSeeds = nextPlantedFarmSeeds;
         selectedRosterBeanId = harvestedBean.id;
         activeHarvestSeed = null;
+        activeHarvestedBean = null;
         saveOwnedBeans(nextOwnedBeans);
         savePlantedFarmSeeds(nextPlantedFarmSeeds);
         if (harvestedSeed.seed.id === TUTORIAL_SEED_ID)
@@ -1099,6 +1106,12 @@
                     />
 
                     {#if activeMainTab === "roster"}
+                        {#if selectedRosterBean}
+                            <div class="roster-selected-gene-list">
+                                <BeanGeneList genes={selectedRosterBean.genes} />
+                            </div>
+                        {/if}
+
                         <RosterPanel
                             {ownedBeans}
                             selectedBeanId={selectedRosterBeanId}
@@ -1167,9 +1180,10 @@
             />
         {/if}
 
-        {#if isGameFrameReady && hasGameStarted && activeHarvestSeed && !isLoadingOverlayVisible}
+        {#if isGameFrameReady && hasGameStarted && activeHarvestSeed && activeHarvestedBean && !isLoadingOverlayVisible}
             <FarmHarvestPopup
-                beanImageUrl={activeHarvestSeed.seed.imageUrl}
+                beanImageUrl={activeHarvestedBean.imageUrl}
+                genes={activeHarvestedBean.genes}
                 isReturnDisabled={activeHarvestSeed.seed.id === TUTORIAL_SEED_ID}
                 onAdd={addHarvestedBeanToRoster}
             />
@@ -1287,6 +1301,15 @@
 
     .roster-tutorial-spotlight-layer {
         z-index: 95;
+    }
+
+    .roster-selected-gene-list {
+        position: absolute;
+        left: 50%;
+        top: 730px;
+        z-index: 2;
+        transform: translateX(-50%);
+        pointer-events: none;
     }
 
     .shop-return-button {

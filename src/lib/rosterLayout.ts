@@ -1,1 +1,1 @@
-export const ROSTER_PREVIEW_HEIGHT = 760;
+export const ROSTER_PREVIEW_HEIGHT = 1000;
