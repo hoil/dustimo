@@ -15,6 +15,16 @@
     $: selectedMaxSeedCount = selectedOwnedSeed
         ? Math.max(1, Math.min(selectedOwnedSeed.count, MAX_SEED_PLANT_COUNT))
         : 1;
+    $: if (selectedOwnedSeed) {
+        const syncedOwnedSeed = ownedSeeds.find((item) => item.seed.id === selectedOwnedSeed?.seed.id) ?? null;
+
+        if (!syncedOwnedSeed || syncedOwnedSeed.count <= 0) {
+            selectedOwnedSeed = null;
+            selectedSeedCount = 1;
+        } else if (syncedOwnedSeed !== selectedOwnedSeed) {
+            selectedOwnedSeed = syncedOwnedSeed;
+        }
+    }
     $: if (selectedSeedCount > selectedMaxSeedCount) {
         selectedSeedCount = selectedMaxSeedCount;
     }

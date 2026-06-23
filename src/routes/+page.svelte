@@ -35,6 +35,7 @@
     import StartScreen from "../lib/components/StartScreen.svelte";
     import LoadingOverlay from "../lib/components/LoadingOverlay.svelte";
     import FarmBeanSelectPanel from "../lib/components/FarmBeanSelectPanel.svelte";
+    import FarmHarvestPopup from "../lib/components/FarmHarvestPopup.svelte";
     import FarmSeedSelectPopup from "../lib/components/FarmSeedSelectPopup.svelte";
     import ProfileHud from "../lib/components/ProfileHud.svelte";
     import SettingsButton from "../lib/components/SettingsButton.svelte";
@@ -50,6 +51,7 @@
     import {
         getLastOwnedBeanId,
         initialOwnedBeans,
+        TUTORIAL_SEED_ID,
         type BeanDefinition,
         type OwnedSeed,
         type PlantedFarmBean,
@@ -65,6 +67,15 @@
     type PerformanceWithMemory = Performance & {
         memory?: PerformanceMemory;
     };
+
+    type TutorialBeanPopup = {
+        key: "tutorial-bean";
+        messages: readonly string[];
+    };
+
+    type QueuedPopup =
+        | InitialPopupDefinition
+        | TutorialBeanPopup;
 
     let activeMainTab: MainTabKey = "farm";
     let lastActiveNonShopTab: MainTabKey = defaultReturnTab;
@@ -92,11 +103,15 @@
     const LOADING_PROGRESS_READY_DISPLAY_LIMIT = 0.95;
     const LOADING_COMPLETE_TWEEN_DURATION = 450;
     const FARM_SEED_GROW_DURATION_PER_SEED_MS = 10 * 60 * 1000;
-    const tutorialMessages = [
+    const TUTORIAL_SEED_GROW_DURATION_MS = 10 * 1000;
+    const initialTutorialMessages = [
         "안녕하세요, 초보 농부님. 저는 튜토리얼콩이에요.",
         "왕이 될 콩을 만들고 싶다고요? 콩을 심을 줄도 모르면서 어떻게요?",
         "제가 차근차근 알려드리죠. 일단 튜토리얼용 완두콩 종자 하나를 주머니에 넣어드렸어요.",
         "농부님 밭의 중앙에 + 버튼을 눌러 완두콩을 심어보세요."
+    ] as const;
+    const seedReadyTutorialMessages = [
+        "오 이제 좀 농부다운걸요? 심은 종자의 수확 시간이 된 것 같으니 다시 눌러보세요."
     ] as const;
     const lockedMainTabs: MainTabKey[] = ["roster", "battle", "plaza", "shop"];
 
@@ -108,10 +123,10 @@
     let isMemoryDebugEnabled = false;
     let isSafeAreaDebugEnabled = false;
     let isFullAreaDebugEnabled = false;
-    let isTutorialOverlayVisible = false;
-    let initialPopupQueue: InitialPopupDefinition[] = [];
-    let activeInitialPopup: InitialPopupDefinition | null = null;
-    let isInitialPopupFlowActive = false;
+    let popupQueue: QueuedPopup[] = [];
+    let activePopup: QueuedPopup | null = null;
+    let activeTutorialPopup: TutorialBeanPopup | null = null;
+    let isPopupLayerBusy = false;
     let hasGameStarted = false;
     let isLoadingOverlayVisible = false;
     let loadingProgress = 0;
@@ -136,13 +151,20 @@
     let plantedFarmSeeds: PlantedFarmSeed[] = [];
     let activeFarmPlantSlotId: string | null = null;
     let activeFarmSeedSlotId: string | null = null;
+    let activeHarvestSeed: PlantedFarmSeed | null = null;
     let isSettingsPopupVisible = false;
     let isSettingsShortcutPanelExpanded = true;
     let activeSettingsShortcutPopup: "inbox" | "tester-thanks" | "game-summary" | null = null;
     $: EventBus.emit("debug-safe-area-changed", isSafeAreaDebugEnabled);
     $: EventBus.emit("debug-full-area-changed", isFullAreaDebugEnabled);
-    $: activeInitialPopup = initialPopupQueue[0] ?? null;
-    $: isInitialPopupFlowActive = initialPopupQueue.length > 0;
+    $: activePopup = popupQueue[0] ?? null;
+    $: activeTutorialPopup = activePopup?.key === "tutorial-bean" ? activePopup : null;
+    $: isPopupLayerBusy = Boolean(
+        activeFarmSeedSlotId ||
+        activeHarvestSeed ||
+        isSettingsPopupVisible ||
+        activeSettingsShortcutPopup
+    );
     $: selectedRosterBean = ownedBeans.find((bean) => bean.id === selectedRosterBeanId) ?? null;
     $: EventBus.emit("roster-selected-bean-changed", selectedRosterBean);
     $: EventBus.emit("farm-plant-panel-open-changed", activeFarmPlantSlotId !== null);
@@ -190,6 +212,18 @@
             loginToastHideTimeoutId = null;
 
         }, 2600);
+
+    };
+
+    const showTutorialMessages = (messages: readonly string[]) => {
+
+        popupQueue = [
+            ...popupQueue,
+            {
+                key: "tutorial-bean",
+                messages
+            }
+        ];
 
     };
 
@@ -407,13 +441,16 @@
 
     const startInitialPopupFlow = () => {
 
-        initialPopupQueue = createInitialPopupQueue();
+        popupQueue = [
+            ...popupQueue,
+            ...createInitialPopupQueue()
+        ];
 
     };
 
-    const closeActiveInitialPopup = () => {
+    const closeActivePopup = () => {
 
-        initialPopupQueue = initialPopupQueue.slice(1);
+        popupQueue = popupQueue.slice(1);
 
     };
 
@@ -423,17 +460,17 @@
         gameUid = uid;
         showLoginToast(uid);
 
+        resetIntroLoadingState();
+        isLoadingOverlayVisible = true;
+        startInitialPopupFlow();
         if (!hasSeenGameTutorial(uid))
         {
 
-            isTutorialOverlayVisible = true;
+            showTutorialMessages(initialTutorialMessages);
             markGameTutorialSeen(uid);
 
         }
 
-        resetIntroLoadingState();
-        isLoadingOverlayVisible = true;
-        startInitialPopupFlow();
         hasGameStarted = true;
         startIntroLoadingScene();
 
@@ -547,6 +584,48 @@
 
     };
 
+    const openFarmHarvestPopup = (plantedSeed: PlantedFarmSeed) => {
+
+        activeHarvestSeed = plantedSeed;
+
+    };
+
+    const createHarvestedBean = (plantedSeed: PlantedFarmSeed): BeanDefinition => {
+
+        return {
+            id: `${plantedSeed.seed.textureKey}-harvested-${Date.now()}`,
+            name: plantedSeed.seed.name.replace(/\s*종자$/, "") || "완두콩",
+            imageUrl: plantedSeed.seed.imageUrl,
+            textureKey: plantedSeed.seed.textureKey
+        };
+
+    };
+
+    const addHarvestedBeanToRoster = () => {
+
+        if (!activeHarvestSeed)
+        {
+
+            return;
+
+        }
+
+        const harvestedBean = createHarvestedBean(activeHarvestSeed);
+        const nextOwnedBeans = [...ownedBeans, harvestedBean];
+        const nextPlantedFarmSeeds = plantedFarmSeeds.filter(
+            (plantedSeed) => plantedSeed.seedSlotId !== activeHarvestSeed?.seedSlotId
+        );
+
+        ownedBeans = nextOwnedBeans;
+        plantedFarmSeeds = nextPlantedFarmSeeds;
+        selectedRosterBeanId = harvestedBean.id;
+        activeHarvestSeed = null;
+        saveOwnedBeans(nextOwnedBeans);
+        savePlantedFarmSeeds(nextPlantedFarmSeeds);
+        EventBus.emit("farm-planted-seeds-changed", nextPlantedFarmSeeds);
+
+    };
+
     const plantSelectedSeedInActiveFarmSlot = (seed: SeedDefinition, count: number) => {
 
         if (!activeFarmSeedSlotId)
@@ -566,22 +645,41 @@
 
         }
 
+        const growDurationMs = seed.id === TUTORIAL_SEED_ID
+            ? TUTORIAL_SEED_GROW_DURATION_MS
+            : plantCount * FARM_SEED_GROW_DURATION_PER_SEED_MS;
         const plantedSeed = {
             seedSlotId: activeFarmSeedSlotId,
             seed,
             count: plantCount,
             plantedAt: Date.now(),
-            growDurationMs: plantCount * FARM_SEED_GROW_DURATION_PER_SEED_MS
+            growDurationMs
         } satisfies PlantedFarmSeed;
-        const nextOwnedSeeds = ownedSeeds
-            .map((item) => item.seed.id === seed.id
-                ? {
+        const nextOwnedSeeds: OwnedSeed[] = ownedSeeds.reduce((result: OwnedSeed[], item) => {
+
+            if (item.seed.id !== seed.id)
+            {
+
+                result.push(item);
+                return result;
+
+            }
+
+            const nextCount = item.count - plantCount;
+
+            if (nextCount > 0)
+            {
+
+                result.push({
                     seed: item.seed,
-                    count: item.count - plantCount
-                }
-                : item
-            )
-            .filter((item) => item.count > 0);
+                    count: nextCount
+                });
+
+            }
+
+            return result;
+
+        }, []);
         const nextPlantedFarmSeeds = [
             ...plantedFarmSeeds.filter((item) => item.seedSlotId !== activeFarmSeedSlotId),
             plantedSeed
@@ -703,9 +801,16 @@
 
     };
 
-    const closeTutorialOverlay = () => {
+    const handleFarmSeedGrowComplete = (plantedSeed: PlantedFarmSeed) => {
 
-        isTutorialOverlayVisible = false;
+        if (plantedSeed.seed.id !== TUTORIAL_SEED_ID)
+        {
+
+            return;
+
+        }
+
+        showTutorialMessages(seedReadyTutorialMessages);
 
     };
 
@@ -785,6 +890,8 @@
         EventBus.on("phaser-loading-complete", handlePhaserLoadingComplete);
         EventBus.on("farm-plant-slot-requested", openFarmBeanSelectPanel);
         EventBus.on("farm-seed-slot-requested", openFarmSeedSelectPopup);
+        EventBus.on("farm-seed-grow-complete", handleFarmSeedGrowComplete);
+        EventBus.on("farm-seed-harvest-requested", openFarmHarvestPopup);
 
         window.addEventListener("resize", scheduleGameFrameUpdate);
         window.visualViewport?.addEventListener("resize", scheduleGameFrameUpdate);
@@ -835,6 +942,8 @@
             EventBus.off("phaser-loading-complete", handlePhaserLoadingComplete);
             EventBus.off("farm-plant-slot-requested", openFarmBeanSelectPanel);
             EventBus.off("farm-seed-slot-requested", openFarmSeedSelectPopup);
+            EventBus.off("farm-seed-grow-complete", handleFarmSeedGrowComplete);
+            EventBus.off("farm-seed-harvest-requested", openFarmHarvestPopup);
 
         };
 
@@ -975,8 +1084,8 @@
             />
         {/if}
 
-        {#if isGameFrameReady && hasGameStarted && activeInitialPopup?.key === "test-popup" && !isLoadingOverlayVisible}
-            <TestPopup onClose={closeActiveInitialPopup} />
+        {#if isGameFrameReady && hasGameStarted && activePopup?.key === "test-popup" && !isLoadingOverlayVisible && !isPopupLayerBusy}
+            <TestPopup onClose={closeActivePopup} />
         {/if}
 
         {#if isGameFrameReady && hasGameStarted && activeFarmSeedSlotId && !isLoadingOverlayVisible}
@@ -984,6 +1093,14 @@
                 {ownedSeeds}
                 onPlant={plantSelectedSeedInActiveFarmSlot}
                 onClose={closeFarmSeedSelectPopup}
+            />
+        {/if}
+
+        {#if isGameFrameReady && hasGameStarted && activeHarvestSeed && !isLoadingOverlayVisible}
+            <FarmHarvestPopup
+                beanImageUrl={activeHarvestSeed.seed.imageUrl}
+                isReturnDisabled={activeHarvestSeed.seed.id === TUTORIAL_SEED_ID}
+                onAdd={addHarvestedBeanToRoster}
             />
         {/if}
 
@@ -999,8 +1116,8 @@
             />
         {/if}
 
-        {#if isGameFrameReady && hasGameStarted && isTutorialOverlayVisible && !isLoadingOverlayVisible && !isInitialPopupFlowActive}
-            <TutorialOverlay messages={tutorialMessages} onClose={closeTutorialOverlay} />
+        {#if isGameFrameReady && hasGameStarted && activeTutorialPopup && !isLoadingOverlayVisible && !isPopupLayerBusy}
+            <TutorialOverlay messages={activeTutorialPopup.messages} onClose={closeActivePopup} />
         {/if}
 
         {#if loginToastHash}

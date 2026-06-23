@@ -47,7 +47,10 @@ type FarmSeedSlot = {
     buttonLabel: GameObjects.Text;
     plantedSeed: PlantedFarmSeed | null;
     mound: GameObjects.Ellipse | null;
+    sprout: GameObjects.Container | null;
+    sproutHitZone: GameObjects.Zone | null;
     timerText: GameObjects.Text | null;
+    isGrowCompleteNotified: boolean;
 };
 
 type FarmPlantSeedPayload = PlantedFarmSeed;
@@ -70,6 +73,7 @@ const FARM_SEED_MOUND_WIDTH = 200;
 const FARM_SEED_MOUND_HEIGHT = 70;
 const FARM_SEED_MOUND_OFFSET_Y = 0;
 const FARM_SEED_TIMER_OFFSET_Y = -96;
+const FARM_SEED_SPROUT_OFFSET_Y = -46;
 const FARM_LOCK_OVERLAY_WIDTH = FARM_GROUP_WIDTH + 96;
 const FARM_LOCK_OVERLAY_HEIGHT = FARM_GROUP_HEIGHT + 96;
 const FARM_LOCK_OVERLAY_DEPTH = 80;
@@ -275,7 +279,10 @@ export class FarmScene extends Scene {
             buttonLabel,
             plantedSeed: null,
             mound: null,
+            sprout: null,
+            sproutHitZone: null,
             timerText: null,
+            isGrowCompleteNotified: false,
         });
         farmGroup.add(buttonContainer);
     }
@@ -406,6 +413,16 @@ export class FarmScene extends Scene {
     }
 
     restorePlantedFarmSeeds(plantedSeeds: PlantedFarmSeed[]) {
+        const plantedSeedSlotIds = new Set(
+            plantedSeeds.map((plantedSeed) => plantedSeed.seedSlotId)
+        );
+
+        this.farmSeedSlots.forEach((slot) => {
+            if (!plantedSeedSlotIds.has(slot.id)) {
+                this.clearFarmSeedSlot(slot);
+            }
+        });
+
         plantedSeeds.forEach((plantedSeed) => {
             this.renderPlantedFarmSeed(plantedSeed);
         });
@@ -445,11 +462,16 @@ export class FarmScene extends Scene {
         }
 
         slot.plantedSeed = payload;
+        slot.isGrowCompleteNotified = false;
         slot.button.setVisible(false);
         slot.buttonCircle.disableInteractive();
         slot.buttonLabel.disableInteractive();
         slot.mound?.destroy();
+        slot.sprout?.destroy();
+        slot.sproutHitZone?.destroy();
         slot.timerText?.destroy();
+        slot.sprout = null;
+        slot.sproutHitZone = null;
         slot.mound = this.add
             .ellipse(
                 slot.x,
@@ -490,6 +512,19 @@ export class FarmScene extends Scene {
         const endTime =
             slot.plantedSeed.plantedAt + slot.plantedSeed.growDurationMs;
         const remainingMs = Math.max(0, endTime - Date.now());
+
+        if (remainingMs <= 0) {
+            slot.timerText.setVisible(false);
+            this.renderFarmSeedSprout(slot);
+
+            if (!slot.isGrowCompleteNotified) {
+                slot.isGrowCompleteNotified = true;
+                EventBus.emit("farm-seed-grow-complete", slot.plantedSeed);
+            }
+
+            return;
+        }
+
         const totalSeconds = Math.ceil(remainingMs / 1000);
         const minutes = Math.floor(totalSeconds / 60);
         const seconds = totalSeconds % 60;
@@ -497,6 +532,73 @@ export class FarmScene extends Scene {
         slot.timerText.setText(
             `${minutes}:${seconds.toString().padStart(2, "0")}`
         );
+    }
+
+    renderFarmSeedSprout(slot: FarmSeedSlot) {
+        if (slot.sprout) {
+            return;
+        }
+
+        const sprout = this.add
+            .container(slot.x, slot.y + FARM_SEED_SPROUT_OFFSET_Y)
+            .setDepth(FARM_GROUP_DEPTH + 4);
+        const stem = this.add
+            .rectangle(0, 20, 18, 92, 0x3bb14a, 1)
+            .setStrokeStyle(4, 0x1f7a2d, 1);
+        const leftLeaf = this.add
+            .ellipse(-38, -10, 78, 42, 0x58d65f, 1)
+            .setAngle(-28)
+            .setStrokeStyle(4, 0x218a31, 1);
+        const rightLeaf = this.add
+            .ellipse(38, -28, 78, 42, 0x6ce36f, 1)
+            .setAngle(26)
+            .setStrokeStyle(4, 0x218a31, 1);
+        const topLeaf = this.add
+            .ellipse(0, -54, 54, 66, 0x49c94f, 1)
+            .setStrokeStyle(4, 0x218a31, 1);
+        const sproutHitZone = this.add
+            .zone(slot.x, slot.y + FARM_SEED_SPROUT_OFFSET_Y, 190, 210)
+            .setInteractive({ useHandCursor: true })
+            .setDepth(FARM_GROUP_DEPTH + 5)
+            .on("pointerup", () => {
+                if (slot.plantedSeed) {
+                    EventBus.emit(
+                        "farm-seed-harvest-requested",
+                        slot.plantedSeed
+                    );
+                }
+            });
+
+        sprout.add([stem, leftLeaf, rightLeaf, topLeaf]);
+        sprout.setScale(0.1);
+        this.tweens.add({
+            targets: sprout,
+            scaleX: 1,
+            scaleY: 1,
+            duration: 360,
+            ease: "Back.easeOut",
+        });
+        slot.sprout = sprout;
+        slot.sproutHitZone = sproutHitZone;
+    }
+
+    clearFarmSeedSlot(slot: FarmSeedSlot) {
+        slot.plantedSeed = null;
+        slot.isGrowCompleteNotified = false;
+        slot.mound?.destroy();
+        slot.sprout?.destroy();
+        slot.sproutHitZone?.destroy();
+        slot.timerText?.destroy();
+        slot.mound = null;
+        slot.sprout = null;
+        slot.sproutHitZone = null;
+        slot.timerText = null;
+        slot.button.setVisible(true);
+
+        if (!slot.isLocked) {
+            slot.buttonCircle.setInteractive({ useHandCursor: true });
+            slot.buttonLabel.setInteractive({ useHandCursor: true });
+        }
     }
 
     startPlantedBeanIdleAnimation(slot: FarmPlantSlot) {

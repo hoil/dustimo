@@ -98,7 +98,7 @@
 
     .settings-popup-message {
         margin: 44px 0 0;
-        font-size: 54px;
+        font-size: 38px;
         font-weight: 800;
         line-height: 1.25;
         text-align: center;

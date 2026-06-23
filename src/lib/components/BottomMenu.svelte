@@ -91,6 +91,7 @@
 
     .bottom-menu-button {
         position: relative;
+        isolation: isolate;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -131,6 +132,7 @@
 
     .bottom-menu-icon-slot {
         position: relative;
+        z-index: 0;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -141,6 +143,8 @@
     }
 
     .bottom-menu-icon {
+        position: relative;
+        z-index: 0;
         display: block;
         width: 100px;
         height: 100px;
@@ -152,6 +156,7 @@
 
     .bottom-menu-lock-badge {
         position: absolute;
+        z-index: 1;
         left: 50%;
         top: 50%;
         display: flex;
@@ -170,6 +175,8 @@
     }
 
     .bottom-menu-label {
+        position: relative;
+        z-index: 2;
         display: block;
         height: 38px;
         line-height: 38px;

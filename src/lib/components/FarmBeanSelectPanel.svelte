@@ -120,17 +120,17 @@
             </svg>
         </div>
 
-        <div class="bean-select-header">
-            <div class="bean-select-header-text">
-                콩 박기 <span class="bean-select-header-description">(콩의 특성 한 가지가 무작위로 종자에 유전됩니다.)</span>
-            </div>
-        </div>
-
         <button class="bean-select-close-button" type="button" aria-label="콩 선택 취소" onclick={requestClose} disabled={isClosing}>
             ×
         </button>
 
         <div class="bean-select-scroll">
+            <div class="bean-select-header">
+                <div class="bean-select-header-text">
+                    콩 박기  <span class="bean-select-header-description">(콩의 특성 한 가지가 무작위로 종자에 유전됩니다.)</span>
+                </div>
+            </div>
+
             <div class="bean-select-grid">
                 {#each rosterSlots as bean, index}
                     <button
@@ -242,15 +242,12 @@
     }
 
     .bean-select-header {
-        position: absolute;
-        left: calc(var(--dom-safe-left, 0px) + 34px);
-        top: 64px;
-        right: calc(var(--dom-safe-right, 0px) + 144px);
-        z-index: 4;
+        position: relative;
         display: flex;
         align-items: center;
         justify-content: flex-start;
         min-height: 88px;
+        margin: 20px calc(var(--dom-safe-right, 0px) + 116px) 36px calc(var(--dom-safe-left, 0px) + 6px);
         pointer-events: none;
     }
 
@@ -293,7 +290,7 @@
     }
 
     .bean-select-header-description {
-        font-size: 27px;
+        font-size: 32px;
         font-weight: 800;
     }
 
@@ -308,7 +305,7 @@
         overscroll-behavior: contain;
         -webkit-overflow-scrolling: touch;
         scrollbar-width: none;
-        padding: 124px 28px 300px;
+        padding: 0 28px 300px;
         pointer-events: auto;
         touch-action: pan-y;
     }
