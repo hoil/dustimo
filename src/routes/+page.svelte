@@ -33,6 +33,9 @@
     import LoadingOverlay from "../lib/components/LoadingOverlay.svelte";
     import FarmBeanSelectPanel from "../lib/components/FarmBeanSelectPanel.svelte";
     import FarmSeedSelectPopup from "../lib/components/FarmSeedSelectPopup.svelte";
+    import ProfileHud from "../lib/components/ProfileHud.svelte";
+    import SettingsButton from "../lib/components/SettingsButton.svelte";
+    import SettingsPopup from "../lib/components/SettingsPopup.svelte";
     import RosterPanel from "../lib/components/RosterPanel.svelte";
     import TutorialOverlay from "../lib/components/TutorialOverlay.svelte";
     import LoginToast from "../lib/components/LoginToast.svelte";
@@ -121,6 +124,9 @@
     let plantedFarmBeans: PlantedFarmBean[] = [];
     let activeFarmPlantSlotId: string | null = null;
     let activeFarmSeedSlotId: string | null = null;
+    let isSettingsPopupVisible = false;
+    let isSettingsShortcutPanelExpanded = true;
+    let activeSettingsShortcutPopup: "inbox" | "tester-thanks" | "game-summary" | null = null;
     $: EventBus.emit("debug-safe-area-changed", isSafeAreaDebugEnabled);
     $: EventBus.emit("debug-full-area-changed", isFullAreaDebugEnabled);
     $: activeInitialPopup = initialPopupQueue[0] ?? null;
@@ -446,6 +452,8 @@
         activeFarmPlantSlotId = null;
 
         activeFarmSeedSlotId = null;
+        isSettingsPopupVisible = false;
+        activeSettingsShortcutPopup = null;
         if (tabKey === shopTabKey && activeMainTab !== shopTabKey)
         {
 
@@ -524,6 +532,66 @@
     const closeFarmSeedSelectPopup = () => {
 
         activeFarmSeedSlotId = null;
+
+    };
+
+    const openSettingsPopup = () => {
+
+        isSettingsPopupVisible = true;
+        activeSettingsShortcutPopup = null;
+
+    };
+
+    const closeSettingsPopup = () => {
+
+        isSettingsPopupVisible = false;
+
+    };
+
+    const toggleSettingsShortcutPanel = () => {
+
+        isSettingsShortcutPanelExpanded = !isSettingsShortcutPanelExpanded;
+
+    };
+
+    const openSettingsShortcutPopup = (popupKey: "inbox" | "tester-thanks" | "game-summary") => {
+
+        activeSettingsShortcutPopup = popupKey;
+        isSettingsPopupVisible = false;
+
+    };
+
+    const closeSettingsShortcutPopup = () => {
+
+        activeSettingsShortcutPopup = null;
+
+    };
+
+    const getSettingsShortcutPopupTitle = () => {
+
+        if (activeSettingsShortcutPopup === "inbox") {
+            return "인박스";
+        }
+
+        if (activeSettingsShortcutPopup === "tester-thanks") {
+            return "게임테스터 감사의인사문";
+        }
+
+        return "콩생역전 설명요약";
+
+    };
+
+    const getSettingsShortcutPopupMessage = () => {
+
+        if (activeSettingsShortcutPopup === "inbox") {
+            return "인박스입니다.";
+        }
+
+        if (activeSettingsShortcutPopup === "tester-thanks") {
+            return "게임테스터 여러분, 테스트에 참여해주셔서 감사합니다.";
+        }
+
+        return "콩생역전은 콩들과 함께 성장하고 재배하며 역전을 만들어가는 이야기입니다.";
 
     };
 
@@ -765,6 +833,16 @@
         {#if isGameFrameReady && hasGameStarted}
             <div class="dom-coordinate-layer">
                 {#if !isShopTabActive}
+                    <ProfileHud nickname={gameUid} />
+                    <SettingsButton
+                        isPanelExpanded={isSettingsShortcutPanelExpanded}
+                        onOpen={openSettingsPopup}
+                        onTogglePanel={toggleSettingsShortcutPanel}
+                        onOpenInbox={() => openSettingsShortcutPopup("inbox")}
+                        onOpenTesterThanks={() => openSettingsShortcutPopup("tester-thanks")}
+                        onOpenGameSummary={() => openSettingsShortcutPopup("game-summary")}
+                    />
+
                     {#if activeMainTab === "roster"}
                         <RosterPanel
                             {ownedBeans}
@@ -842,6 +920,18 @@
             <FarmSeedSelectPopup
                 {ownedSeeds}
                 onClose={closeFarmSeedSelectPopup}
+            />
+        {/if}
+
+        {#if isGameFrameReady && hasGameStarted && !isShopTabActive && isSettingsPopupVisible && !isLoadingOverlayVisible}
+            <SettingsPopup onClose={closeSettingsPopup} />
+        {/if}
+
+        {#if isGameFrameReady && hasGameStarted && !isShopTabActive && activeSettingsShortcutPopup && !isLoadingOverlayVisible}
+            <SettingsPopup
+                title={getSettingsShortcutPopupTitle()}
+                message={getSettingsShortcutPopupMessage()}
+                onClose={closeSettingsShortcutPopup}
             />
         {/if}
 
