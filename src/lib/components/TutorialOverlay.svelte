@@ -4,8 +4,10 @@
 
     export let messages: readonly string[] = [];
     export let onClose: () => void;
+    export let onStateChange: (state: { activeMessageIndex: number; isTypingComplete: boolean; isLastMessage: boolean }) => void = () => {};
+    export let isWaitingForExternalActionOnLastMessage = false;
 
-    const typingIntervalMs = 24;
+    const typingIntervalMs = 60;
 
     let typedMessage = "";
     let typingIntervalId: number | null = null;
@@ -15,6 +17,7 @@
     let isTyping = false;
     $: isLastMessage = activeMessageIndex >= messages.length - 1;
     $: isTypingComplete = !isTyping;
+    $: onStateChange({ activeMessageIndex, isTypingComplete, isLastMessage });
 
     const getActiveMessage = () => {
 
@@ -90,6 +93,13 @@
         if (isLastMessage)
         {
 
+            if (isWaitingForExternalActionOnLastMessage)
+            {
+
+                return;
+
+            }
+
             onClose();
             return;
 
@@ -132,7 +142,7 @@
             <div class="tutorial-dialog-text" aria-live="polite">{typedMessage}</div>
             {#if isTypingComplete}
                 <div class="tutorial-next-indicator" aria-hidden="true">
-                    ↵ {isLastMessage ? "확인" : "다음"}
+                    ↵ {isLastMessage && isWaitingForExternalActionOnLastMessage ? "동료탭" : isLastMessage ? "확인" : "다음"}
                 </div>
             {/if}
         </div>

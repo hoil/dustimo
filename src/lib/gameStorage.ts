@@ -14,6 +14,8 @@ const GAME_OWNED_BEANS_STORAGE_KEY = `${GAME_STORAGE_PREFIX}owned-beans`;
 const GAME_OWNED_SEEDS_STORAGE_KEY = `${GAME_STORAGE_PREFIX}owned-seeds`;
 const GAME_PLANTED_FARM_BEANS_STORAGE_KEY = `${GAME_STORAGE_PREFIX}planted-farm-beans`;
 const GAME_PLANTED_FARM_SEEDS_STORAGE_KEY = `${GAME_STORAGE_PREFIX}planted-farm-seeds`;
+const GAME_ROSTER_TAB_UNLOCKED_STORAGE_KEY = `${GAME_STORAGE_PREFIX}roster-tab-unlocked`;
+const GAME_ROSTER_TAB_UNREAD_STORAGE_KEY = `${GAME_STORAGE_PREFIX}roster-tab-unread`;
 
 const createInitialOwnedBeans = (): BeanDefinition[] => {
     return initialOwnedBeans.map((bean) => ({ ...bean }));
@@ -340,6 +342,48 @@ export const getPlantedFarmSeeds = () => {
     return parsePlantedFarmSeeds(
         localStorage.getItem(GAME_PLANTED_FARM_SEEDS_STORAGE_KEY)
     );
+};
+
+export const hasUnlockedRosterTab = () => {
+    if (typeof localStorage === "undefined") {
+        return false;
+    }
+
+    return (
+        localStorage.getItem(GAME_ROSTER_TAB_UNLOCKED_STORAGE_KEY) === "true"
+    );
+};
+
+export const markRosterTabUnlocked = () => {
+    if (typeof localStorage === "undefined") {
+        return;
+    }
+
+    localStorage.setItem(GAME_ROSTER_TAB_UNLOCKED_STORAGE_KEY, "true");
+};
+
+export const hasUnreadRosterTab = () => {
+    if (typeof localStorage === "undefined") {
+        return false;
+    }
+
+    return localStorage.getItem(GAME_ROSTER_TAB_UNREAD_STORAGE_KEY) === "true";
+};
+
+export const markRosterTabUnread = () => {
+    if (typeof localStorage === "undefined") {
+        return;
+    }
+
+    localStorage.setItem(GAME_ROSTER_TAB_UNREAD_STORAGE_KEY, "true");
+};
+
+export const markRosterTabRead = () => {
+    if (typeof localStorage === "undefined") {
+        return;
+    }
+
+    localStorage.setItem(GAME_ROSTER_TAB_UNREAD_STORAGE_KEY, "false");
 };
 
 export const clearGameStorage = () => {

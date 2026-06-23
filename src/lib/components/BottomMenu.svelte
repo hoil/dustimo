@@ -6,6 +6,9 @@
     export let activeTab: MainTabKey;
     export let pressedTab: MainTabKey | null;
     export let lockedTabs: readonly MainTabKey[] = [];
+    export let unreadTabs: readonly MainTabKey[] = [];
+    export let spotlightTab: MainTabKey | null = null;
+    export let isFrameVisible = true;
     export let onSelect: (tabKey: MainTabKey) => void;
     export let onPress: (tabKey: MainTabKey) => void;
     export let onRelease: (tabKey: MainTabKey) => void;
@@ -16,32 +19,42 @@
 
     };
 
+    const hasUnreadTab = (tabKey: MainTabKey) => {
+
+        return unreadTabs.includes(tabKey);
+
+    };
+
 </script>
 
 <nav class="bottom-menu" aria-label="하단 메뉴">
-    <img
-        class="bottom-menu-frame"
-        src="/assets/bottom_menu/frame.png"
-        alt=""
-        width="1440"
-        height="782"
-        aria-hidden="true"
-    />
+    {#if isFrameVisible}
+        <img
+            class="bottom-menu-frame"
+            src="/assets/bottom_menu/frame.png"
+            alt=""
+            width="1440"
+            height="782"
+            aria-hidden="true"
+        />
+    {/if}
     <div class="bottom-menu-buttons">
         {#each items as menuItem}
             {@const isLocked = isTabLocked(menuItem.tabKey)}
+            {@const isUnread = hasUnreadTab(menuItem.tabKey) && !isLocked}
+            {@const isSpotlightHidden = spotlightTab !== null && spotlightTab !== menuItem.tabKey}
             <button
-                class={`bottom-menu-button ${activeTab === menuItem.tabKey ? "bottom-menu-button-active" : ""} ${pressedTab === menuItem.tabKey && !isLocked ? "bottom-menu-button-pressed" : ""} ${isLocked ? "bottom-menu-button-locked" : ""}`}
+                class={`bottom-menu-button ${activeTab === menuItem.tabKey ? "bottom-menu-button-active" : ""} ${pressedTab === menuItem.tabKey && !isLocked && !isSpotlightHidden ? "bottom-menu-button-pressed" : ""} ${isLocked ? "bottom-menu-button-locked" : ""} ${isSpotlightHidden ? "bottom-menu-button-spotlight-hidden" : ""}`}
                 type="button"
                 aria-pressed={activeTab === menuItem.tabKey}
-                aria-disabled={isLocked}
-                disabled={isLocked}
-                onpointerdown={() => !isLocked && onPress(menuItem.tabKey)}
-                onpointerup={() => !isLocked && onRelease(menuItem.tabKey)}
-                onpointerleave={() => !isLocked && onRelease(menuItem.tabKey)}
-                onpointercancel={() => !isLocked && onRelease(menuItem.tabKey)}
-                onblur={() => !isLocked && onRelease(menuItem.tabKey)}
-                onclick={() => !isLocked && onSelect(menuItem.tabKey)}
+                aria-disabled={isLocked || isSpotlightHidden}
+                disabled={isLocked || isSpotlightHidden}
+                onpointerdown={() => !isLocked && !isSpotlightHidden && onPress(menuItem.tabKey)}
+                onpointerup={() => !isLocked && !isSpotlightHidden && onRelease(menuItem.tabKey)}
+                onpointerleave={() => !isLocked && !isSpotlightHidden && onRelease(menuItem.tabKey)}
+                onpointercancel={() => !isLocked && !isSpotlightHidden && onRelease(menuItem.tabKey)}
+                onblur={() => !isLocked && !isSpotlightHidden && onRelease(menuItem.tabKey)}
+                onclick={() => !isLocked && !isSpotlightHidden && onSelect(menuItem.tabKey)}
             >
                 <span class="bottom-menu-icon-slot" aria-hidden="true">
                     <img class="bottom-menu-icon" src={menuItem.iconSrc} alt="" />
@@ -50,6 +63,9 @@
                     {/if}
                 </span>
                 <span class="bottom-menu-label">{menuItem.label}</span>
+                {#if isUnread}
+                    <span class="bottom-menu-red-dot" aria-hidden="true"></span>
+                {/if}
             </button>
         {/each}
     </div>
@@ -174,6 +190,20 @@
         pointer-events: none;
     }
 
+    .bottom-menu-red-dot {
+        position: absolute;
+        z-index: 3;
+        left: calc(50% + 35px);
+        top: calc(9% - 2px);
+        width: 34px;
+        height: 34px;
+        border: 6px solid #ffffff;
+        border-radius: 50%;
+        background: #ff1f2f;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.35);
+        pointer-events: none;
+    }
+
     .bottom-menu-label {
         position: relative;
         z-index: 2;
@@ -197,6 +227,11 @@
 
     .bottom-menu-button-locked .bottom-menu-icon {
         opacity: 0.5;
+    }
+
+    .bottom-menu-button-spotlight-hidden {
+        visibility: hidden;
+        pointer-events: none;
     }
 
 </style>

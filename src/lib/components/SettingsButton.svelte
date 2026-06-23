@@ -53,16 +53,16 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 168px;
-        height: 168px;
+        width: 120px;
+        height: 120px;
         padding: 0;
-        border: 9px solid #8e5c04;
-        border-radius: 48px;
+        border: 6px solid #8e5c04;
+        border-radius: 34px;
         background: rgba(255, 248, 226, 0.94);
-        box-shadow: 0 10px 18px rgba(0, 0, 0, 0.22);
+        box-shadow: 0 7px 13px rgba(0, 0, 0, 0.22);
         color: #4a2b17;
         font-family: "MabinogiClassic", sans-serif;
-        font-size: 93px;
+        font-size: 66px;
         font-weight: 800;
         line-height: 1;
         cursor: pointer;
@@ -71,8 +71,8 @@
     }
 
     .settings-button:active {
-        transform: translateY(5px);
-        box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+        transform: translateY(4px);
+        box-shadow: 0 4px 7px rgba(0, 0, 0, 0.2);
     }
 
     .settings-panel-toggle-button {
@@ -80,17 +80,17 @@
         align-items: center;
         justify-content: center;
         box-sizing: border-box;
-        width: 168px;
-        height: 96px;
-        margin-top: 27px;
+        width: 120px;
+        height: 69px;
+        margin-top: 19px;
         padding: 0;
-        border: 9px solid #8e5c04;
-        border-radius: 36px;
+        border: 6px solid #8e5c04;
+        border-radius: 26px;
         background: rgba(255, 248, 226, 0.94);
-        box-shadow: 0 10px 18px rgba(0, 0, 0, 0.22);
+        box-shadow: 0 7px 13px rgba(0, 0, 0, 0.22);
         color: #4a2b17;
         font-family: "MabinogiClassic", sans-serif;
-        font-size: 60px;
+        font-size: 43px;
         font-weight: 800;
         line-height: 1;
         cursor: pointer;
@@ -107,15 +107,14 @@
         display: flex;
         flex-direction: column;
         box-sizing: border-box;
-        width: 168px;
+        width: 120px;
         max-height: 540px;
-        margin-top: 0px;
+        margin-top: 24px;
         overflow: hidden;
-        padding: 15px;
-        border: 9px solid rgba(126, 82, 12, 0.96);
-        border-radius: 51px;
-        background: rgba(255, 248, 226, 0.94);
-        box-shadow: 0 12px 22px rgba(0, 0, 0, 0.2);
+        padding: 0;
+        border: 0 solid transparent;
+        background: transparent;
+        box-shadow: none;
         opacity: 1;
         pointer-events: auto;
         transform: translateY(0);
@@ -132,7 +131,7 @@
         max-height: 0;
         padding-top: 0;
         padding-bottom: 0;
-        border-width: 0 9px;
+        border-width: 0;
         opacity: 0;
         pointer-events: none;
         transform: translateY(-18px);

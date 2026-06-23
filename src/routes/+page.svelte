@@ -11,8 +11,13 @@
         getOrCreateGameUid,
         getPlantedFarmBeans,
         getPlantedFarmSeeds,
+        hasUnlockedRosterTab,
+        hasUnreadRosterTab,
         hasSeenGameTutorial,
         markGameTutorialSeen,
+        markRosterTabRead,
+        markRosterTabUnlocked,
+        markRosterTabUnread,
         saveOwnedBeans,
         saveOwnedSeeds,
         savePlantedFarmSeeds,
@@ -71,6 +76,7 @@
     type TutorialBeanPopup = {
         key: "tutorial-bean";
         messages: readonly string[];
+        action?: "open-roster-tab";
     };
 
     type QueuedPopup =
@@ -105,15 +111,23 @@
     const FARM_SEED_GROW_DURATION_PER_SEED_MS = 10 * 60 * 1000;
     const TUTORIAL_SEED_GROW_DURATION_MS = 10 * 1000;
     const initialTutorialMessages = [
-        "안녕하세요, 초보 농부님. 저는 튜토리얼콩이에요.",
+        "안녕하세요, 게스트님. 저는 튜토리얼콩이에요.",
         "왕이 될 콩을 만들고 싶다고요? 콩을 심을 줄도 모르면서 어떻게요?",
         "제가 차근차근 알려드리죠. 일단 튜토리얼용 완두콩 종자 하나를 주머니에 넣어드렸어요.",
-        "농부님 밭의 중앙에 + 버튼을 눌러 완두콩을 심어보세요."
+        "게스트님 밭의 중앙에 + 버튼을 눌러 완두콩을 심고 기다려보세요.",
+        "원래라면 수확까지 시간이 꽤 걸리는데, 이번엔 제가 엄청 짧게 설정해드릴게요."
     ] as const;
     const seedReadyTutorialMessages = [
-        "오 이제 좀 농부다운걸요? 심은 종자의 수확 시간이 된 것 같으니 다시 눌러보세요."
+        "잘 하셨어요! 심은 종자의 타이머가 종료되면 콩 수확이 가능해져요",
+        "이제 자라난 콩나무를 눌러 첫 번째 콩을 수확해보세요."
     ] as const;
-    const lockedMainTabs: MainTabKey[] = ["roster", "battle", "plaza", "shop"];
+    const firstHarvestCompleteTutorialMessages = [
+        "좋아요! 첫 콩 수확을 정말 축하해요, 게스트님.",
+        "방금 얻은 콩은 이제 게스트님의 든든한 동료가 되었답니다.",
+        "새 동료가 생겼으니 동료탭도 열어드릴게요.",
+        "그럼 동료탭에 들어가서 확인해볼까요?"
+    ] as const;
+    const baseLockedMainTabs: MainTabKey[] = ["battle", "plaza", "shop"];
 
     let isGameFrameReady = false;
     let gameFrameStyle = "";
@@ -123,9 +137,12 @@
     let isMemoryDebugEnabled = false;
     let isSafeAreaDebugEnabled = false;
     let isFullAreaDebugEnabled = false;
+    let isRosterTabUnlocked = false;
+    let isRosterTabUnread = false;
     let popupQueue: QueuedPopup[] = [];
     let activePopup: QueuedPopup | null = null;
     let activeTutorialPopup: TutorialBeanPopup | null = null;
+    let isRosterTutorialPromptReady = false;
     let isPopupLayerBusy = false;
     let hasGameStarted = false;
     let isLoadingOverlayVisible = false;
@@ -159,6 +176,24 @@
     $: EventBus.emit("debug-full-area-changed", isFullAreaDebugEnabled);
     $: activePopup = popupQueue[0] ?? null;
     $: activeTutorialPopup = activePopup?.key === "tutorial-bean" ? activePopup : null;
+    $: isRosterTutorialPromptActive = activeTutorialPopup?.action === "open-roster-tab";
+    $: if (!isRosterTutorialPromptActive && isRosterTutorialPromptReady)
+    {
+
+        isRosterTutorialPromptReady = false;
+
+    }
+
+    $: isRosterTutorialSpotlightVisible = Boolean(
+        isRosterTutorialPromptActive &&
+        isRosterTutorialPromptReady &&
+        !isLoadingOverlayVisible &&
+        !isPopupLayerBusy
+    );
+    $: lockedMainTabs = isRosterTabUnlocked
+        ? baseLockedMainTabs
+        : ["roster", ...baseLockedMainTabs];
+    $: unreadMainTabs = isRosterTabUnread ? ["roster"] : [];
     $: isPopupLayerBusy = Boolean(
         activeFarmSeedSlotId ||
         activeHarvestSeed ||
@@ -215,15 +250,26 @@
 
     };
 
-    const showTutorialMessages = (messages: readonly string[]) => {
+    const showTutorialMessages = (messages: readonly string[], action?: TutorialBeanPopup["action"]) => {
 
         popupQueue = [
             ...popupQueue,
             {
                 key: "tutorial-bean",
-                messages
+                messages,
+                action
             }
         ];
+
+    };
+
+    const handleTutorialStateChange = (state: { isTypingComplete: boolean; isLastMessage: boolean }) => {
+
+        isRosterTutorialPromptReady = Boolean(
+            activeTutorialPopup?.action === "open-roster-tab" &&
+            state.isLastMessage &&
+            state.isTypingComplete
+        );
 
     };
 
@@ -511,7 +557,24 @@
         }
 
         activeMainTab = tabKey;
+        if (tabKey === "roster" && isRosterTabUnread)
+        {
+
+            isRosterTabUnread = false;
+            markRosterTabRead();
+
+        }
+
         syncPhaserSceneWithTab(tabKey);
+
+    };
+
+    const selectRosterTabFromTutorialPrompt = () => {
+
+        playPopSound();
+        closeActivePopup();
+        selectMainTab("roster");
+        isRosterTutorialPromptReady = false;
 
     };
 
@@ -610,10 +673,11 @@
 
         }
 
-        const harvestedBean = createHarvestedBean(activeHarvestSeed);
+        const harvestedSeed = activeHarvestSeed;
+        const harvestedBean = createHarvestedBean(harvestedSeed);
         const nextOwnedBeans = [...ownedBeans, harvestedBean];
         const nextPlantedFarmSeeds = plantedFarmSeeds.filter(
-            (plantedSeed) => plantedSeed.seedSlotId !== activeHarvestSeed?.seedSlotId
+            (plantedSeed) => plantedSeed.seedSlotId !== harvestedSeed.seedSlotId
         );
 
         ownedBeans = nextOwnedBeans;
@@ -622,6 +686,23 @@
         activeHarvestSeed = null;
         saveOwnedBeans(nextOwnedBeans);
         savePlantedFarmSeeds(nextPlantedFarmSeeds);
+        if (harvestedSeed.seed.id === TUTORIAL_SEED_ID)
+        {
+
+            isRosterTabUnlocked = true;
+            markRosterTabUnlocked();
+            showTutorialMessages(firstHarvestCompleteTutorialMessages, "open-roster-tab");
+
+        }
+
+        if (activeMainTab !== "roster")
+        {
+
+            isRosterTabUnread = true;
+            markRosterTabUnread();
+
+        }
+
         EventBus.emit("farm-planted-seeds-changed", nextPlantedFarmSeeds);
 
     };
@@ -876,6 +957,8 @@
         ownedSeeds = getOrCreateOwnedSeeds();
         plantedFarmBeans = getPlantedFarmBeans();
         plantedFarmSeeds = getPlantedFarmSeeds();
+        isRosterTabUnlocked = hasUnlockedRosterTab();
+        isRosterTabUnread = hasUnreadRosterTab();
         selectedRosterBeanId = getLastOwnedBeanId(ownedBeans);
 
         scheduleGameFrameUpdate();
@@ -1036,6 +1119,7 @@
                         activeTab={activeMainTab}
                         pressedTab={pressedBottomMenuTab}
                         lockedTabs={lockedMainTabs}
+                        unreadTabs={unreadMainTabs}
                         onSelect={selectMainTabWithSound}
                         onPress={pressBottomMenuButton}
                         onRelease={releaseBottomMenuButton}
@@ -1053,19 +1137,6 @@
                     </button>
                 {/if}
 
-                <DebugPanel
-                    bind:isFpsDebugEnabled
-                    bind:isMemoryDebugEnabled
-                    bind:isSafeAreaDebugEnabled
-                    isFullAreaDebugEnabled={isFullAreaDebugEnabled}
-                    {debugFpsText}
-                    {debugMemoryText}
-                    {gameUid}
-                    {uidCopyFeedback}
-                    onFullAreaChange={handleFullAreaChange}
-                    onCopyUid={copyGameUid}
-                    onResetAccount={resetGameAccount}
-                />
             </div>
         {/if}
 
@@ -1117,11 +1188,51 @@
         {/if}
 
         {#if isGameFrameReady && hasGameStarted && activeTutorialPopup && !isLoadingOverlayVisible && !isPopupLayerBusy}
-            <TutorialOverlay messages={activeTutorialPopup.messages} onClose={closeActivePopup} />
+            <TutorialOverlay
+                messages={activeTutorialPopup.messages}
+                isWaitingForExternalActionOnLastMessage={activeTutorialPopup.action === "open-roster-tab"}
+                onStateChange={handleTutorialStateChange}
+                onClose={closeActivePopup}
+            />
+        {/if}
+
+        {#if isGameFrameReady && hasGameStarted && isRosterTutorialSpotlightVisible}
+            <div class="dom-coordinate-layer roster-tutorial-spotlight-layer">
+                <BottomMenu
+                    items={bottomMenuItems}
+                    activeTab={activeMainTab}
+                    pressedTab={pressedBottomMenuTab}
+                    lockedTabs={lockedMainTabs}
+                    unreadTabs={unreadMainTabs}
+                    spotlightTab="roster"
+                    isFrameVisible={false}
+                    onSelect={selectRosterTabFromTutorialPrompt}
+                    onPress={pressBottomMenuButton}
+                    onRelease={releaseBottomMenuButton}
+                />
+            </div>
         {/if}
 
         {#if loginToastHash}
             <LoginToast hash={loginToastHash} toastKey={loginToastKey} />
+        {/if}
+
+        {#if isGameFrameReady && hasGameStarted}
+            <div class="dom-coordinate-layer debug-coordinate-layer">
+                <DebugPanel
+                    bind:isFpsDebugEnabled
+                    bind:isMemoryDebugEnabled
+                    bind:isSafeAreaDebugEnabled
+                    isFullAreaDebugEnabled={isFullAreaDebugEnabled}
+                    {debugFpsText}
+                    {debugMemoryText}
+                    {gameUid}
+                    {uidCopyFeedback}
+                    onFullAreaChange={handleFullAreaChange}
+                    onCopyUid={copyGameUid}
+                    onResetAccount={resetGameAccount}
+                />
+            </div>
         {/if}
     </div>
 </div>
@@ -1168,6 +1279,14 @@
         transform: translate(-50%, -50%) scale(var(--dom-coordinate-scale, 1));
         transform-origin: center;
         pointer-events: none;
+    }
+
+    .debug-coordinate-layer {
+        z-index: 10000;
+    }
+
+    .roster-tutorial-spotlight-layer {
+        z-index: 95;
     }
 
     .shop-return-button {

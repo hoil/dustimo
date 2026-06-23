@@ -86,8 +86,8 @@
         transform: translate(-50%, -50%);
         transform-origin: 50% 88%;
         animation:
-            harvest-sprout-shake 250ms ease-in-out 0s 8,
-            harvest-sprout-pop-out 220ms ease-in 2s forwards;
+            harvest-sprout-shake 250ms ease-in-out 0s 4,
+            harvest-sprout-pop-out 220ms ease-in 1s forwards;
     }
 
     .harvest-sprout-stem {
@@ -145,7 +145,7 @@
         background: radial-gradient(circle, #fff9bf 0%, #ffe15a 42%, rgba(255, 160, 29, 0) 72%);
         opacity: 0;
         transform: translate(-50%, -50%) scale(0.25);
-        animation: harvest-burst 440ms ease-out 2s forwards;
+        animation: harvest-burst 440ms ease-out 1s forwards;
     }
 
     .harvest-bean {
@@ -160,7 +160,7 @@
         filter: drop-shadow(0 24px 24px rgba(0, 0, 0, 0.28));
         user-select: none;
         -webkit-user-drag: none;
-        animation: harvest-bean-born 520ms cubic-bezier(0.18, 0.89, 0.32, 1.28) 2.05s forwards;
+        animation: harvest-bean-born 520ms cubic-bezier(0.18, 0.89, 0.32, 1.28) 1s forwards;
     }
 
     .harvest-actions {
@@ -174,7 +174,7 @@
         transform: translateX(-50%);
         opacity: 0;
         pointer-events: none;
-        animation: harvest-actions-in 220ms ease-out 2.08s forwards;
+        animation: harvest-actions-in 220ms ease-out 1.55s forwards;
     }
 
     .harvest-action-button {

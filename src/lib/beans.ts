@@ -32,32 +32,7 @@ export type PlantedFarmSeed = {
 
 export const TUTORIAL_SEED_ID = "kidney-bean-seed";
 
-export const initialOwnedBeans = [
-    {
-        id: "bean-1-owned-1",
-        name: "완두콩",
-        imageUrl: "/assets/beans/bean_1.png",
-        textureKey: "bean-1",
-    },
-    {
-        id: "bean-1-owned-2",
-        name: "완두콩",
-        imageUrl: "/assets/beans/bean_1.png",
-        textureKey: "bean-1",
-    },
-    {
-        id: "bean-1-owned-3",
-        name: "완두콩",
-        imageUrl: "/assets/beans/bean_1.png",
-        textureKey: "bean-1",
-    },
-    {
-        id: "bean-1-owned-4",
-        name: "완두콩",
-        imageUrl: "/assets/beans/bean_1.png",
-        textureKey: "bean-1",
-    },
-] as const satisfies BeanDefinition[];
+export const initialOwnedBeans: BeanDefinition[] = [];
 
 export const kidneyBeanSeed = {
     id: TUTORIAL_SEED_ID,
