@@ -35,7 +35,7 @@
         background: rgba(0, 0, 0, 0.78);
         box-shadow: 0 12px 28px rgba(0, 0, 0, 0.24);
         color: #ffffff;
-        font-family: "TmoneyRoundWind", sans-serif;
+        font-family: "MabinogiClassic", sans-serif;
         font-size: 34px;
         font-weight: 400;
         line-height: 1.2;

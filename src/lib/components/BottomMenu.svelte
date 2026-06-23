@@ -105,7 +105,7 @@
         color: #fff;
         paint-order: stroke fill;
         -webkit-text-stroke: 9px #8e5c04;
-        font-family: "TmoneyRoundWind", sans-serif;
+        font-family: "MabinogiClassic", sans-serif;
         font-size: 36px;
         font-weight: 400;
         line-height: 1;

@@ -1,9 +1,62 @@
 <script lang="ts">
 
-    import type { OwnedSeed } from "../beans";
+    import type { OwnedSeed, SeedDefinition } from "../beans";
 
     export let ownedSeeds: readonly OwnedSeed[] = [];
+    export let onPlant: (seed: SeedDefinition, count: number) => void;
     export let onClose: () => void;
+
+    const MAX_SEED_PLANT_COUNT = 10;
+    const GROW_MINUTES_PER_SEED = 10;
+
+    let selectedOwnedSeed: OwnedSeed | null = null;
+    let selectedSeedCount = 1;
+
+    $: selectedMaxSeedCount = selectedOwnedSeed
+        ? Math.max(1, Math.min(selectedOwnedSeed.count, MAX_SEED_PLANT_COUNT))
+        : 1;
+    $: if (selectedSeedCount > selectedMaxSeedCount) {
+        selectedSeedCount = selectedMaxSeedCount;
+    }
+
+    const selectSeed = (ownedSeed: OwnedSeed) => {
+
+        if (ownedSeed.count <= 0) {
+            return;
+        }
+
+        selectedOwnedSeed = ownedSeed;
+        selectedSeedCount = 1;
+
+    };
+
+    const decreaseSeedCount = () => {
+
+        selectedSeedCount = Math.max(1, selectedSeedCount - 1);
+
+    };
+
+    const increaseSeedCount = () => {
+
+        selectedSeedCount = Math.min(selectedMaxSeedCount, selectedSeedCount + 1);
+
+    };
+
+    const setMaxSeedCount = () => {
+
+        selectedSeedCount = selectedMaxSeedCount;
+
+    };
+
+    const plantSelectedSeed = () => {
+
+        if (!selectedOwnedSeed) {
+            return;
+        }
+
+        onPlant(selectedOwnedSeed.seed, selectedSeedCount);
+
+    };
 
 </script>
 
@@ -49,15 +102,44 @@
 
             <div class="seed-list" role="list" aria-label="내 보유 종자 리스트">
                 {#each ownedSeeds as ownedSeed}
-                    <div class="seed-list-item" role="listitem">
+                    <button
+                        class:seed-list-item-selected={selectedOwnedSeed?.seed.id === ownedSeed.seed.id}
+                        class="seed-list-item"
+                        type="button"
+                        role="listitem"
+                        disabled={ownedSeed.count <= 0}
+                        onclick={() => selectSeed(ownedSeed)}
+                    >
                         <img class="seed-portrait" src={ownedSeed.seed.imageUrl} alt="" draggable="false" />
                         <span class="seed-name">{ownedSeed.seed.name}</span>
                         <span class="seed-count">보유 개수: {ownedSeed.count}개</span>
-                    </div>
+                    </button>
                 {:else}
                     <p class="seed-empty-message">보유 중인 종자가 없어요.</p>
                 {/each}
             </div>
+
+            {#if selectedOwnedSeed}
+                <div class="seed-plant-panel" aria-label="종자 심기 수량 선택">
+                    <h3 class="seed-plant-title">몇 개를 심을까요?</h3>
+                    <div class="seed-count-control">
+                        <button class="seed-count-button" type="button" onclick={decreaseSeedCount} disabled={selectedSeedCount <= 1}>
+                            −
+                        </button>
+                        <span class="seed-count-value">{selectedSeedCount}</span>
+                        <button class="seed-count-button" type="button" onclick={increaseSeedCount} disabled={selectedSeedCount >= selectedMaxSeedCount}>
+                            +
+                        </button>
+                        <button class="seed-count-max-button" type="button" onclick={setMaxSeedCount}>
+                            최대
+                        </button>
+                    </div>
+                    <p class="seed-grow-time">소요 재배 시간: {selectedSeedCount * GROW_MINUTES_PER_SEED}분</p>
+                    <button class="seed-plant-button" type="button" onclick={plantSelectedSeed}>
+                        심기
+                    </button>
+                </div>
+            {/if}
         </div>
     </section>
 </div>
@@ -85,7 +167,7 @@
         width: var(--dom-popup-width, 1080px);
         height: 1520px;
         color: #4a2b17;
-        font-family: "TmoneyRoundWind", sans-serif;
+        font-family: "MabinogiClassic", sans-serif;
         pointer-events: auto;
         transform-origin: center;
         animation: popup-scale-in 300ms cubic-bezier(0.18, 0.89, 0.32, 1.28) both;
@@ -206,7 +288,7 @@
         background: rgba(74, 43, 23, 0.96);
         box-shadow: 0 12px 18px rgba(0, 0, 0, 0.22);
         color: #ffffff;
-        font-family: Arial, sans-serif;
+        font-family: "MabinogiClassic", sans-serif;
         font-size: 78px;
         font-weight: 800;
         line-height: 1;
@@ -237,8 +319,8 @@
     .seed-list {
         box-sizing: border-box;
         width: 100%;
-        max-height: 960px;
-        margin-top: 96px;
+        max-height: 520px;
+        margin-top: 76px;
         overflow-x: hidden;
         overflow-y: auto;
         overscroll-behavior: contain;
@@ -263,7 +345,25 @@
         border-radius: 34px;
         background: rgba(255, 247, 216, 0.96);
         box-shadow: 0 10px 0 rgba(91, 57, 0, 0.24);
+        color: #4a2b17;
+        font-family: "MabinogiClassic", sans-serif;
         text-align: left;
+        cursor: pointer;
+        pointer-events: auto;
+        touch-action: manipulation;
+    }
+
+    .seed-list-item:disabled {
+        cursor: not-allowed;
+        opacity: 0.55;
+    }
+
+    .seed-list-item-selected {
+        border-color: #ffde45;
+        background: #fff0a8;
+        box-shadow:
+            0 10px 0 rgba(155, 105, 0, 0.36),
+            0 0 0 7px rgba(255, 177, 33, 0.44) inset;
     }
 
     .seed-list-item + .seed-list-item {
@@ -301,5 +401,97 @@
         color: #67472d;
         font-size: 38px;
         font-weight: 800;
+    }
+
+    .seed-plant-panel {
+        box-sizing: border-box;
+        width: 100%;
+        margin-top: 56px;
+        padding: 38px 44px 42px;
+        border: 6px solid #8e5c04;
+        border-radius: 34px;
+        background: rgba(255, 247, 216, 0.96);
+        box-shadow: 0 10px 0 rgba(91, 57, 0, 0.24);
+    }
+
+    .seed-plant-title {
+        margin: 0;
+        font-size: 42px;
+        font-weight: 800;
+        line-height: 1.18;
+    }
+
+    .seed-count-control {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 20px;
+        margin-top: 30px;
+    }
+
+    .seed-count-button,
+    .seed-count-max-button,
+    .seed-plant-button {
+        border: 5px solid #8e5c04;
+        background: #fff7d8;
+        box-shadow: 0 7px 0 rgba(91, 57, 0, 0.26);
+        color: #4a2b17;
+        font-family: "MabinogiClassic", sans-serif;
+        font-weight: 800;
+        cursor: pointer;
+        pointer-events: auto;
+        touch-action: manipulation;
+    }
+
+    .seed-count-button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 86px;
+        height: 86px;
+        border-radius: 24px;
+        font-size: 58px;
+        line-height: 1;
+    }
+
+    .seed-count-button:disabled {
+        cursor: not-allowed;
+        opacity: 0.5;
+    }
+
+    .seed-count-value {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 120px;
+        height: 86px;
+        border: 5px solid #8e5c04;
+        border-radius: 24px;
+        background: rgba(255, 255, 255, 0.72);
+        font-size: 46px;
+        font-weight: 800;
+    }
+
+    .seed-count-max-button {
+        height: 86px;
+        padding: 0 30px;
+        border-radius: 24px;
+        font-size: 36px;
+    }
+
+    .seed-grow-time {
+        margin: 34px 0 0;
+        color: #67472d;
+        font-size: 34px;
+        font-weight: 800;
+    }
+
+    .seed-plant-button {
+        width: 100%;
+        height: 102px;
+        margin-top: 34px;
+        border-radius: 30px;
+        background: #ffdf3d;
+        font-size: 44px;
     }
 </style>

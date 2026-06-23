@@ -6,17 +6,9 @@
 
 <style>
     @font-face {
-        font-family: "TmoneyRoundWind";
-        src: url("/assets/fonts/TmoneyRoundWind/TmoneyRoundWindRegular.woff") format("woff");
-        font-weight: 400;
-        font-style: normal;
-        font-display: swap;
-    }
-
-    @font-face {
-        font-family: "TmoneyRoundWind";
-        src: url("/assets/fonts/TmoneyRoundWind/TmoneyRoundWindExtraBold.woff") format("woff");
-        font-weight: 800;
+        font-family: "MabinogiClassic";
+        src: url("/assets/fonts/Mabinogi_Classic/Mabinogi_Classic.otf") format("opentype");
+        font-weight: 400 800;
         font-style: normal;
         font-display: swap;
     }
@@ -41,7 +33,7 @@
         padding: 0;
         color: rgba(255, 255, 255, 0.87);
         background-color: #1a1918;
-        font-family: Arial, Helvetica, sans-serif;
+        font-family: "MabinogiClassic", sans-serif;
         overflow: hidden;
         overscroll-behavior: none;
         touch-action: none;

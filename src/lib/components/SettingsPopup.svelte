@@ -54,7 +54,7 @@
         background: rgba(255, 248, 226, 0.98);
         box-shadow: 0 20px 34px rgba(0, 0, 0, 0.24);
         color: #4a2b17;
-        font-family: "TmoneyRoundWind", sans-serif;
+        font-family: "MabinogiClassic", sans-serif;
         pointer-events: auto;
         transform-origin: center;
         animation: settings-popup-scale-in 260ms cubic-bezier(0.18, 0.89, 0.32, 1.28) both;
@@ -87,7 +87,7 @@
         background: rgba(74, 43, 23, 0.96);
         box-shadow: 0 10px 16px rgba(0, 0, 0, 0.22);
         color: #ffffff;
-        font-family: Arial, sans-serif;
+        font-family: "MabinogiClassic", sans-serif;
         font-size: 70px;
         font-weight: 800;
         line-height: 1;

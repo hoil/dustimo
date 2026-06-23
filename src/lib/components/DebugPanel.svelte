@@ -137,7 +137,7 @@
         border-radius: 14px;
         background: rgba(0, 0, 0, 0.72);
         color: #ffffff;
-        font-family: monospace;
+        font-family: "MabinogiClassic", sans-serif;
         font-size: 28px;
         line-height: 1.35;
         text-align: center;
@@ -229,7 +229,7 @@
     .debug-uid-label {
         flex: 0 0 auto;
         color: rgba(255, 255, 255, 0.72);
-        font-family: monospace;
+        font-family: "MabinogiClassic", sans-serif;
         font-size: 28px;
         font-weight: 800;
         line-height: 1;
@@ -241,7 +241,7 @@
         min-width: 0;
         overflow: hidden;
         color: #ffffff;
-        font-family: monospace;
+        font-family: "MabinogiClassic", sans-serif;
         font-size: 30px;
         font-weight: 700;
         line-height: 1.2;

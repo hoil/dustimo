@@ -10,9 +10,12 @@
         getOrCreateOwnedSeeds,
         getOrCreateGameUid,
         getPlantedFarmBeans,
+        getPlantedFarmSeeds,
         hasSeenGameTutorial,
         markGameTutorialSeen,
         saveOwnedBeans,
+        saveOwnedSeeds,
+        savePlantedFarmSeeds,
         savePlantedFarmBeans
     } from "../lib/gameStorage";
     import { SAFE_AREA_HEIGHT, SAFE_AREA_WIDTH } from "../game/SafeArea";
@@ -49,7 +52,9 @@
         initialOwnedBeans,
         type BeanDefinition,
         type OwnedSeed,
-        type PlantedFarmBean
+        type PlantedFarmBean,
+        type PlantedFarmSeed,
+        type SeedDefinition
     } from "../lib/beans";
 
     type PerformanceMemory = {
@@ -86,7 +91,13 @@
 
     const LOADING_PROGRESS_READY_DISPLAY_LIMIT = 0.95;
     const LOADING_COMPLETE_TWEEN_DURATION = 450;
-    const tutorialMessage = "안녕하세요! 저는 튜토리얼콩이에요. 튜토리얼 대본을 완성하면 다시 돌아올게요. 안녕히계세요!";
+    const FARM_SEED_GROW_DURATION_PER_SEED_MS = 10 * 60 * 1000;
+    const tutorialMessages = [
+        "안녕하세요, 초보 농부님. 저는 튜토리얼콩이에요.",
+        "왕이 될 콩을 만들고 싶다고요? 콩을 심을 줄도 모르면서 어떻게요?",
+        "제가 차근차근 알려드리죠. 일단 튜토리얼용 완두콩 종자 하나를 주머니에 넣어드렸어요.",
+        "농부님 밭의 중앙에 + 버튼을 눌러 완두콩을 심어보세요."
+    ] as const;
     const lockedMainTabs: MainTabKey[] = ["roster", "battle", "plaza", "shop"];
 
     let isGameFrameReady = false;
@@ -122,6 +133,7 @@
     let ownedSeeds: OwnedSeed[] = [];
     let selectedRosterBeanId: string | null = getLastOwnedBeanId(ownedBeans);
     let plantedFarmBeans: PlantedFarmBean[] = [];
+    let plantedFarmSeeds: PlantedFarmSeed[] = [];
     let activeFarmPlantSlotId: string | null = null;
     let activeFarmSeedSlotId: string | null = null;
     let isSettingsPopupVisible = false;
@@ -535,6 +547,55 @@
 
     };
 
+    const plantSelectedSeedInActiveFarmSlot = (seed: SeedDefinition, count: number) => {
+
+        if (!activeFarmSeedSlotId)
+        {
+
+            return;
+
+        }
+
+        const ownedSeed = ownedSeeds.find((item) => item.seed.id === seed.id);
+        const plantCount = Math.min(Math.max(1, count), ownedSeed?.count ?? 0, 10);
+
+        if (!ownedSeed || plantCount <= 0)
+        {
+
+            return;
+
+        }
+
+        const plantedSeed = {
+            seedSlotId: activeFarmSeedSlotId,
+            seed,
+            count: plantCount,
+            plantedAt: Date.now(),
+            growDurationMs: plantCount * FARM_SEED_GROW_DURATION_PER_SEED_MS
+        } satisfies PlantedFarmSeed;
+        const nextOwnedSeeds = ownedSeeds
+            .map((item) => item.seed.id === seed.id
+                ? {
+                    seed: item.seed,
+                    count: item.count - plantCount
+                }
+                : item
+            )
+            .filter((item) => item.count > 0);
+        const nextPlantedFarmSeeds = [
+            ...plantedFarmSeeds.filter((item) => item.seedSlotId !== activeFarmSeedSlotId),
+            plantedSeed
+        ];
+
+        ownedSeeds = nextOwnedSeeds;
+        plantedFarmSeeds = nextPlantedFarmSeeds;
+        saveOwnedSeeds(nextOwnedSeeds);
+        savePlantedFarmSeeds(nextPlantedFarmSeeds);
+        EventBus.emit("farm-plant-seed", plantedSeed);
+        closeFarmSeedSelectPopup();
+
+    };
+
     const openSettingsPopup = () => {
 
         isSettingsPopupVisible = true;
@@ -709,6 +770,7 @@
         ownedBeans = getOrCreateOwnedBeans();
         ownedSeeds = getOrCreateOwnedSeeds();
         plantedFarmBeans = getPlantedFarmBeans();
+        plantedFarmSeeds = getPlantedFarmSeeds();
         selectedRosterBeanId = getLastOwnedBeanId(ownedBeans);
 
         scheduleGameFrameUpdate();
@@ -812,6 +874,7 @@
         {
 
             EventBus.emit("farm-planted-beans-changed", plantedFarmBeans);
+            EventBus.emit("farm-planted-seeds-changed", plantedFarmSeeds);
 
         }
 
@@ -919,6 +982,7 @@
         {#if isGameFrameReady && hasGameStarted && activeFarmSeedSlotId && !isLoadingOverlayVisible}
             <FarmSeedSelectPopup
                 {ownedSeeds}
+                onPlant={plantSelectedSeedInActiveFarmSlot}
                 onClose={closeFarmSeedSelectPopup}
             />
         {/if}
@@ -936,7 +1000,7 @@
         {/if}
 
         {#if isGameFrameReady && hasGameStarted && isTutorialOverlayVisible && !isLoadingOverlayVisible && !isInitialPopupFlowActive}
-            <TutorialOverlay message={tutorialMessage} onClose={closeTutorialOverlay} />
+            <TutorialOverlay messages={tutorialMessages} onClose={closeTutorialOverlay} />
         {/if}
 
         {#if loginToastHash}
@@ -1002,7 +1066,7 @@
         background: rgba(255, 251, 231, 0.96);
         box-shadow: 0 14px 24px rgba(0, 0, 0, 0.22);
         color: #4c3300;
-        font-family: "TmoneyRoundWind", sans-serif;
+        font-family: "MabinogiClassic", sans-serif;
         font-size: 34px;
         font-weight: 800;
         line-height: 1;

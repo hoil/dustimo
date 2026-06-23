@@ -72,7 +72,7 @@
         width: var(--dom-popup-width, 1080px);
         height: 1520px;
         color: #4a2b17;
-        font-family: "TmoneyRoundWind", sans-serif;
+        font-family: "MabinogiClassic", sans-serif;
         pointer-events: auto;
         transform-origin: center;
         animation: popup-scale-in 300ms cubic-bezier(0.18, 0.89, 0.32, 1.28) both;
@@ -193,7 +193,7 @@
         background: rgba(74, 43, 23, 0.96);
         box-shadow: 0 12px 18px rgba(0, 0, 0, 0.22);
         color: #ffffff;
-        font-family: Arial, sans-serif;
+        font-family: "MabinogiClassic", sans-serif;
         font-size: 78px;
         font-weight: 800;
         line-height: 1;

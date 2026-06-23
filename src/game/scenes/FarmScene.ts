@@ -3,7 +3,7 @@ import { Math as PhaserMath, type GameObjects, Scene } from "phaser";
 import { EventBus } from "../EventBus";
 import { FIELD_BACKGROUND_TEXTURE_KEY } from "../preloadAssets";
 import { startBackgroundMusic } from "../backgroundMusic";
-import type { PlantedFarmBean } from "../../lib/beans";
+import type { PlantedFarmBean, PlantedFarmSeed } from "../../lib/beans";
 import {
     SAFE_AREA_CENTER_X,
     SAFE_AREA_CENTER_Y,
@@ -37,6 +37,21 @@ type FarmPlantBeanPayload = {
     bean: PlantedFarmBean["bean"];
 };
 
+type FarmSeedSlot = {
+    id: string;
+    x: number;
+    y: number;
+    isLocked: boolean;
+    button: GameObjects.Container;
+    buttonCircle: GameObjects.Arc;
+    buttonLabel: GameObjects.Text;
+    plantedSeed: PlantedFarmSeed | null;
+    mound: GameObjects.Ellipse | null;
+    timerText: GameObjects.Text | null;
+};
+
+type FarmPlantSeedPayload = PlantedFarmSeed;
+
 const FARM_GROUP_WIDTH = 300;
 const FARM_GROUP_HEIGHT = 300;
 const FARM_GROUP_HORIZONTAL_GAP = 160;
@@ -50,7 +65,11 @@ const FARM_PLANTED_BEAN_VERTICAL_OFFSET = FARM_PLANTED_BEAN_SIZE * 0.75;
 const FARM_PLANTED_BEAN_IDLE_SCALE_X_MULTIPLIER = 0.95;
 const FARM_PLANTED_BEAN_IDLE_SCALE_Y_MULTIPLIER = 1.05;
 const FARM_PLANTED_BEAN_IDLE_DURATION = 900;
-const FARM_SEED_BUTTON_SIZE = 96;
+const FARM_SEED_BUTTON_SIZE = 150;
+const FARM_SEED_MOUND_WIDTH = 200;
+const FARM_SEED_MOUND_HEIGHT = 70;
+const FARM_SEED_MOUND_OFFSET_Y = 0;
+const FARM_SEED_TIMER_OFFSET_Y = -96;
 const FARM_LOCK_OVERLAY_WIDTH = FARM_GROUP_WIDTH + 96;
 const FARM_LOCK_OVERLAY_HEIGHT = FARM_GROUP_HEIGHT + 96;
 const FARM_LOCK_OVERLAY_DEPTH = 80;
@@ -69,6 +88,8 @@ export class FarmScene extends Scene {
     logoTween: Phaser.Tweens.Tween | null = null;
     logoMoveCallback: LogoPositionCallback | null = null;
     farmPlantSlots = new Map<string, FarmPlantSlot>();
+    farmSeedSlots = new Map<string, FarmSeedSlot>();
+    farmSeedTimerEvent: Phaser.Time.TimerEvent | null = null;
     isPlantPanelOpen = false;
 
     constructor() {
@@ -85,9 +106,15 @@ export class FarmScene extends Scene {
         // this.createLogo();
         this.events.once("shutdown", () => {
             EventBus.off("farm-plant-bean", this.handleFarmPlantBean, this);
+            EventBus.off("farm-plant-seed", this.handleFarmPlantSeed, this);
             EventBus.off(
                 "farm-planted-beans-changed",
                 this.restorePlantedFarmBeans,
+                this
+            );
+            EventBus.off(
+                "farm-planted-seeds-changed",
+                this.restorePlantedFarmSeeds,
                 this
             );
             EventBus.off(
@@ -96,11 +123,19 @@ export class FarmScene extends Scene {
                 this
             );
             this.stopAllPlantedBeanIdleAnimations();
+            this.farmSeedTimerEvent?.destroy();
+            this.farmSeedTimerEvent = null;
         });
         EventBus.on("farm-plant-bean", this.handleFarmPlantBean, this);
+        EventBus.on("farm-plant-seed", this.handleFarmPlantSeed, this);
         EventBus.on(
             "farm-planted-beans-changed",
             this.restorePlantedFarmBeans,
+            this
+        );
+        EventBus.on(
+            "farm-planted-seeds-changed",
+            this.restorePlantedFarmSeeds,
             this
         );
         EventBus.on(
@@ -108,6 +143,12 @@ export class FarmScene extends Scene {
             this.handlePlantPanelOpenChanged,
             this
         );
+        this.farmSeedTimerEvent = this.time.addEvent({
+            delay: 1000,
+            loop: true,
+            callback: this.updateFarmSeedTimers,
+            callbackScope: this,
+        });
 
         EventBus.emit("current-scene-ready", this);
     }
@@ -163,7 +204,8 @@ export class FarmScene extends Scene {
         ];
 
         farmGroupPositions.forEach((position, farmGroupIndex) => {
-            const isLockedFarmGroup = farmGroupIndex !== UNLOCKED_FARM_GROUP_INDEX;
+            const isLockedFarmGroup =
+                farmGroupIndex !== UNLOCKED_FARM_GROUP_INDEX;
             const farmGroup = this.add
                 .container(position.x, position.y)
                 .setDepth(FARM_GROUP_DEPTH);
@@ -176,7 +218,11 @@ export class FarmScene extends Scene {
                     isLockedFarmGroup
                 );
             });
-            this.createFarmSeedButton(farmGroup, farmGroupIndex, isLockedFarmGroup);
+            this.createFarmSeedButton(
+                farmGroup,
+                farmGroupIndex,
+                isLockedFarmGroup
+            );
 
             if (isLockedFarmGroup) {
                 this.createFarmLockOverlay(farmGroup);
@@ -198,8 +244,8 @@ export class FarmScene extends Scene {
         const buttonLabel = this.add
             .text(0, -4, "+", {
                 color: "#6d470c",
-                fontFamily: "TmoneyRoundWind, Arial, sans-serif",
-                fontSize: "88px",
+                fontFamily: "MabinogiClassic, sans-serif",
+                fontSize: "250px",
                 fontStyle: "bold",
             })
             .setOrigin(0.5);
@@ -219,6 +265,18 @@ export class FarmScene extends Scene {
         }
 
         buttonContainer.add([buttonCircle, buttonLabel]);
+        this.farmSeedSlots.set(seedSlotId, {
+            id: seedSlotId,
+            x: farmGroup.x,
+            y: farmGroup.y,
+            isLocked: isLockedFarmGroup,
+            button: buttonContainer,
+            buttonCircle,
+            buttonLabel,
+            plantedSeed: null,
+            mound: null,
+            timerText: null,
+        });
         farmGroup.add(buttonContainer);
     }
 
@@ -245,7 +303,7 @@ export class FarmScene extends Scene {
         const buttonLabel = this.add
             .text(0, -3, "+", {
                 color: "#6d470c",
-                fontFamily: "TmoneyRoundWind, Arial, sans-serif",
+                fontFamily: "MabinogiClassic, sans-serif",
                 fontSize: "72px",
                 fontStyle: "bold",
             })
@@ -296,7 +354,7 @@ export class FarmScene extends Scene {
             .setDepth(FARM_LOCK_OVERLAY_DEPTH);
         const lockIcon = this.add
             .text(0, -12, "🔒", {
-                fontFamily: "Arial, sans-serif",
+                fontFamily: "MabinogiClassic, sans-serif",
                 fontSize: "104px",
             })
             .setOrigin(0.5)
@@ -304,7 +362,7 @@ export class FarmScene extends Scene {
         const lockLabel = this.add
             .text(0, 92, "잠김", {
                 color: "#ffffff",
-                fontFamily: "TmoneyRoundWind, Arial, sans-serif",
+                fontFamily: "MabinogiClassic, sans-serif",
                 fontSize: "34px",
                 fontStyle: "bold",
             })
@@ -343,6 +401,16 @@ export class FarmScene extends Scene {
         });
     }
 
+    handleFarmPlantSeed(payload: FarmPlantSeedPayload) {
+        this.renderPlantedFarmSeed(payload);
+    }
+
+    restorePlantedFarmSeeds(plantedSeeds: PlantedFarmSeed[]) {
+        plantedSeeds.forEach((plantedSeed) => {
+            this.renderPlantedFarmSeed(plantedSeed);
+        });
+    }
+
     renderPlantedFarmBean(payload: FarmPlantBeanPayload) {
         const slot = this.farmPlantSlots.get(payload.slotId);
 
@@ -367,6 +435,68 @@ export class FarmScene extends Scene {
             .setDisplaySize(FARM_PLANTED_BEAN_SIZE, FARM_PLANTED_BEAN_SIZE)
             .setDepth(FARM_GROUP_DEPTH + 2);
         this.startPlantedBeanIdleAnimation(slot);
+    }
+
+    renderPlantedFarmSeed(payload: FarmPlantSeedPayload) {
+        const slot = this.farmSeedSlots.get(payload.seedSlotId);
+
+        if (!slot || slot.isLocked) {
+            return;
+        }
+
+        slot.plantedSeed = payload;
+        slot.button.setVisible(false);
+        slot.buttonCircle.disableInteractive();
+        slot.buttonLabel.disableInteractive();
+        slot.mound?.destroy();
+        slot.timerText?.destroy();
+        slot.mound = this.add
+            .ellipse(
+                slot.x,
+                slot.y + FARM_SEED_MOUND_OFFSET_Y,
+                FARM_SEED_MOUND_WIDTH,
+                FARM_SEED_MOUND_HEIGHT,
+                0x8b5a24,
+                1
+            )
+            .setStrokeStyle(8, 0x5b3516, 1)
+            .setDepth(FARM_GROUP_DEPTH + 3);
+        slot.timerText = this.add
+            .text(slot.x, slot.y + FARM_SEED_TIMER_OFFSET_Y, "", {
+                color: "#ffffff",
+                fontFamily: "MabinogiClassic, sans-serif",
+                fontSize: "38px",
+                fontStyle: "bold",
+                stroke: "#4a2b17",
+                strokeThickness: 8,
+            })
+            .setOrigin(0.5)
+            .setDepth(FARM_GROUP_DEPTH + 4);
+
+        this.updateFarmSeedTimer(slot);
+    }
+
+    updateFarmSeedTimers() {
+        this.farmSeedSlots.forEach((slot) => {
+            this.updateFarmSeedTimer(slot);
+        });
+    }
+
+    updateFarmSeedTimer(slot: FarmSeedSlot) {
+        if (!slot.plantedSeed || !slot.timerText) {
+            return;
+        }
+
+        const endTime =
+            slot.plantedSeed.plantedAt + slot.plantedSeed.growDurationMs;
+        const remainingMs = Math.max(0, endTime - Date.now());
+        const totalSeconds = Math.ceil(remainingMs / 1000);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+
+        slot.timerText.setText(
+            `${minutes}:${seconds.toString().padStart(2, "0")}`
+        );
     }
 
     startPlantedBeanIdleAnimation(slot: FarmPlantSlot) {

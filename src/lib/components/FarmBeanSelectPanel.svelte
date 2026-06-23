@@ -270,7 +270,7 @@
         background: rgba(74, 43, 23, 0.96);
         box-shadow: 0 10px 16px rgba(0, 0, 0, 0.22);
         color: #ffffff;
-        font-family: Arial, sans-serif;
+        font-family: "MabinogiClassic", sans-serif;
         font-size: 66px;
         font-weight: 800;
         line-height: 1;
@@ -283,7 +283,7 @@
         flex: 1 1 auto;
         min-width: 0;
         color: #4a2b17;
-        font-family: "TmoneyRoundWind", sans-serif;
+        font-family: "MabinogiClassic", sans-serif;
         font-size: 38px;
         font-weight: 800;
         line-height: 1.25;

@@ -4,6 +4,7 @@ import {
     type BeanDefinition,
     type OwnedSeed,
     type PlantedFarmBean,
+    type PlantedFarmSeed,
 } from "./beans";
 
 const GAME_STORAGE_PREFIX = "beantoking:";
@@ -12,6 +13,7 @@ const GAME_TUTORIAL_SEEN_STORAGE_KEY_PREFIX = `${GAME_STORAGE_PREFIX}tutorial-se
 const GAME_OWNED_BEANS_STORAGE_KEY = `${GAME_STORAGE_PREFIX}owned-beans`;
 const GAME_OWNED_SEEDS_STORAGE_KEY = `${GAME_STORAGE_PREFIX}owned-seeds`;
 const GAME_PLANTED_FARM_BEANS_STORAGE_KEY = `${GAME_STORAGE_PREFIX}planted-farm-beans`;
+const GAME_PLANTED_FARM_SEEDS_STORAGE_KEY = `${GAME_STORAGE_PREFIX}planted-farm-seeds`;
 
 const createInitialOwnedBeans = (): BeanDefinition[] => {
     return initialOwnedBeans.map((bean) => ({ ...bean }));
@@ -109,6 +111,27 @@ const isPlantedFarmBean = (value: unknown): value is PlantedFarmBean => {
     );
 };
 
+const isPlantedFarmSeed = (value: unknown): value is PlantedFarmSeed => {
+    if (!value || typeof value !== "object") {
+        return false;
+    }
+
+    const plantedSeed = value as Record<string, unknown>;
+
+    return (
+        typeof plantedSeed.seedSlotId === "string" &&
+        isBeanDefinition(plantedSeed.seed) &&
+        typeof plantedSeed.count === "number" &&
+        Number.isInteger(plantedSeed.count) &&
+        plantedSeed.count > 0 &&
+        typeof plantedSeed.plantedAt === "number" &&
+        Number.isFinite(plantedSeed.plantedAt) &&
+        typeof plantedSeed.growDurationMs === "number" &&
+        Number.isFinite(plantedSeed.growDurationMs) &&
+        plantedSeed.growDurationMs > 0
+    );
+};
+
 const parsePlantedFarmBeans = (rawValue: string | null) => {
     if (!rawValue) {
         return [];
@@ -120,6 +143,27 @@ const parsePlantedFarmBeans = (rawValue: string | null) => {
         if (
             !Array.isArray(parsedValue) ||
             parsedValue.some((plantedBean) => !isPlantedFarmBean(plantedBean))
+        ) {
+            return [];
+        }
+
+        return parsedValue;
+    } catch {
+        return [];
+    }
+};
+
+const parsePlantedFarmSeeds = (rawValue: string | null) => {
+    if (!rawValue) {
+        return [];
+    }
+
+    try {
+        const parsedValue: unknown = JSON.parse(rawValue);
+
+        if (
+            !Array.isArray(parsedValue) ||
+            parsedValue.some((plantedSeed) => !isPlantedFarmSeed(plantedSeed))
         ) {
             return [];
         }
@@ -272,6 +316,29 @@ export const getPlantedFarmBeans = () => {
 
     return parsePlantedFarmBeans(
         localStorage.getItem(GAME_PLANTED_FARM_BEANS_STORAGE_KEY)
+    );
+};
+
+export const savePlantedFarmSeeds = (
+    plantedSeeds: readonly PlantedFarmSeed[]
+) => {
+    if (typeof localStorage === "undefined") {
+        return;
+    }
+
+    localStorage.setItem(
+        GAME_PLANTED_FARM_SEEDS_STORAGE_KEY,
+        JSON.stringify(plantedSeeds)
+    );
+};
+
+export const getPlantedFarmSeeds = () => {
+    if (typeof localStorage === "undefined") {
+        return [];
+    }
+
+    return parsePlantedFarmSeeds(
+        localStorage.getItem(GAME_PLANTED_FARM_SEEDS_STORAGE_KEY)
     );
 };
 

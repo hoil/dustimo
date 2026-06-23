@@ -68,8 +68,8 @@
         }
 
         return Promise.all([
-            document.fonts.load("400 34px \"TmoneyRoundWind\""),
-            document.fonts.load("800 34px \"TmoneyRoundWind\"")
+            document.fonts.load("400 34px \"MabinogiClassic\""),
+            document.fonts.load("800 34px \"MabinogiClassic\"")
         ])
             .then(() => document.fonts.ready)
             .then(() => undefined);
@@ -166,7 +166,7 @@
         height: var(--dom-frame-height, 1920px);
         background: transparent;
         color: #000;
-        font-family: Arial, sans-serif;
+        font-family: "MabinogiClassic", sans-serif;
         pointer-events: auto;
     }
 

@@ -152,7 +152,7 @@
     .start-button-label {
         position: relative;
         z-index: 1;
-        font-family: "TmoneyRoundWind", sans-serif;
+        font-family: "MabinogiClassic", sans-serif;
         font-weight: 400;
     }
 

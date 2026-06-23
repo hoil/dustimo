@@ -50,7 +50,7 @@
         background: rgba(255, 248, 226, 0.94);
         box-shadow: 0 12px 22px rgba(0, 0, 0, 0.2);
         color: #4a2b17;
-        font-family: "TmoneyRoundWind", sans-serif;
+        font-family: "MabinogiClassic", sans-serif;
         pointer-events: none;
     }
 

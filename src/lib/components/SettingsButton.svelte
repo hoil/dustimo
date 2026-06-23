@@ -53,16 +53,16 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 112px;
-        height: 112px;
+        width: 168px;
+        height: 168px;
         padding: 0;
-        border: 6px solid #8e5c04;
-        border-radius: 32px;
+        border: 9px solid #8e5c04;
+        border-radius: 48px;
         background: rgba(255, 248, 226, 0.94);
         box-shadow: 0 10px 18px rgba(0, 0, 0, 0.22);
         color: #4a2b17;
-        font-family: Arial, sans-serif;
-        font-size: 62px;
+        font-family: "MabinogiClassic", sans-serif;
+        font-size: 93px;
         font-weight: 800;
         line-height: 1;
         cursor: pointer;
@@ -80,17 +80,17 @@
         align-items: center;
         justify-content: center;
         box-sizing: border-box;
-        width: 112px;
-        height: 112px;
-        margin-top: 18px;
+        width: 168px;
+        height: 96px;
+        margin-top: 27px;
         padding: 0;
-        border: 6px solid #8e5c04;
-        border-radius: 32px;
+        border: 9px solid #8e5c04;
+        border-radius: 36px;
         background: rgba(255, 248, 226, 0.94);
         box-shadow: 0 10px 18px rgba(0, 0, 0, 0.22);
         color: #4a2b17;
-        font-family: Arial, sans-serif;
-        font-size: 54px;
+        font-family: "MabinogiClassic", sans-serif;
+        font-size: 60px;
         font-weight: 800;
         line-height: 1;
         cursor: pointer;
@@ -107,13 +107,13 @@
         display: flex;
         flex-direction: column;
         box-sizing: border-box;
-        width: 112px;
+        width: 168px;
         max-height: 540px;
-        margin-top: 16px;
+        margin-top: 0px;
         overflow: hidden;
-        padding: 10px;
-        border: 6px solid rgba(126, 82, 12, 0.96);
-        border-radius: 34px;
+        padding: 15px;
+        border: 9px solid rgba(126, 82, 12, 0.96);
+        border-radius: 51px;
         background: rgba(255, 248, 226, 0.94);
         box-shadow: 0 12px 22px rgba(0, 0, 0, 0.2);
         opacity: 1;
@@ -132,7 +132,7 @@
         max-height: 0;
         padding-top: 0;
         padding-bottom: 0;
-        border-width: 0 6px;
+        border-width: 0 9px;
         opacity: 0;
         pointer-events: none;
         transform: translateY(-18px);
@@ -143,17 +143,17 @@
         align-items: center;
         justify-content: center;
         box-sizing: border-box;
-        width: 80px;
-        height: 80px;
-        min-height: 80px;
+        width: 120px;
+        height: 120px;
+        min-height: 120px;
         padding: 0;
-        border: 5px solid #8e5c04;
-        border-radius: 22px;
+        border: 8px solid #8e5c04;
+        border-radius: 33px;
         background: #fff7d8;
         box-shadow: 0 7px 0 rgba(91, 57, 0, 0.26);
         color: #4a2b17;
-        font-family: Arial, sans-serif;
-        font-size: 42px;
+        font-family: "MabinogiClassic", sans-serif;
+        font-size: 63px;
         font-weight: 800;
         line-height: 1.18;
         cursor: pointer;
@@ -162,6 +162,6 @@
     }
 
     .settings-shortcut-button + .settings-shortcut-button {
-        margin-top: 16px;
+        margin-top: 24px;
     }
 </style>

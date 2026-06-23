@@ -2,13 +2,25 @@
 
     import { onDestroy, onMount } from "svelte";
 
-    export let message: string;
+    export let messages: readonly string[] = [];
     export let onClose: () => void;
 
-    const typingIntervalMs = 80;
+    const typingIntervalMs = 24;
 
     let typedMessage = "";
     let typingIntervalId: number | null = null;
+    let activeMessageIndex = 0;
+    let activeCharacters: string[] = [];
+    let activeCharacterIndex = 0;
+    let isTyping = false;
+    $: isLastMessage = activeMessageIndex >= messages.length - 1;
+    $: isTypingComplete = !isTyping;
+
+    const getActiveMessage = () => {
+
+        return messages[activeMessageIndex] ?? "";
+
+    };
 
     const clearTyping = () => {
 
@@ -24,19 +36,30 @@
 
     const startTyping = () => {
 
-        const characters = Array.from(message);
-        let characterIndex = 0;
+        const activeMessage = getActiveMessage();
 
         clearTyping();
+        activeCharacters = Array.from(activeMessage);
+        activeCharacterIndex = 0;
         typedMessage = "";
+        isTyping = activeCharacters.length > 0;
+
+        if (activeCharacters.length === 0)
+        {
+
+            return;
+
+        }
+
         typingIntervalId = window.setInterval(() => {
 
-            typedMessage += characters[characterIndex] ?? "";
-            characterIndex += 1;
+            typedMessage += activeCharacters[activeCharacterIndex] ?? "";
+            activeCharacterIndex += 1;
 
-            if (characterIndex >= characters.length)
+            if (activeCharacterIndex >= activeCharacters.length)
             {
 
+                isTyping = false;
                 clearTyping();
 
             }
@@ -45,12 +68,57 @@
 
     };
 
+    const completeTyping = () => {
+
+        clearTyping();
+        typedMessage = getActiveMessage();
+        activeCharacterIndex = activeCharacters.length;
+        isTyping = false;
+
+    };
+
+    const advanceTutorial = () => {
+
+        if (isTyping)
+        {
+
+            completeTyping();
+            return;
+
+        }
+
+        if (isLastMessage)
+        {
+
+            onClose();
+            return;
+
+        }
+
+        activeMessageIndex += 1;
+        startTyping();
+
+    };
+
     onMount(startTyping);
     onDestroy(clearTyping);
 
 </script>
 
-<div class="dom-coordinate-layer tutorial-coordinate-layer">
+<div
+    class="dom-coordinate-layer tutorial-coordinate-layer"
+    role="button"
+    tabindex="0"
+    aria-label="튜토리얼 대화 진행"
+    onclick={advanceTutorial}
+    onkeydown={(event) => {
+        if (event.key === "Enter" || event.key === " ")
+        {
+            event.preventDefault();
+            advanceTutorial();
+        }
+    }}
+>
     <div class="tutorial-dim" aria-hidden="true"></div>
     <section class="tutorial-guide" aria-label="튜토리얼 안내">
         <img
@@ -62,9 +130,11 @@
         />
         <div class="tutorial-dialog" role="dialog" aria-label="튜토리얼콩 대화">
             <div class="tutorial-dialog-text" aria-live="polite">{typedMessage}</div>
-            <button class="tutorial-close-button" type="button" onclick={onClose}>
-                확인
-            </button>
+            {#if isTypingComplete}
+                <div class="tutorial-next-indicator" aria-hidden="true">
+                    ↵ {isLastMessage ? "확인" : "다음"}
+                </div>
+            {/if}
         </div>
     </section>
 </div>
@@ -72,6 +142,7 @@
 <style>
     .tutorial-coordinate-layer {
         z-index: 90;
+        pointer-events: auto;
     }
 
     .tutorial-dim {
@@ -126,7 +197,7 @@
         background: rgba(255, 251, 231, 0.98);
         box-shadow: 0 16px 32px rgba(0, 0, 0, 0.22);
         color: #4c3300;
-        font-family: "TmoneyRoundWind", sans-serif;
+        font-family: "MabinogiClassic", sans-serif;
         pointer-events: auto;
     }
 
@@ -154,23 +225,29 @@
         word-break: keep-all;
     }
 
-    .tutorial-close-button {
+    .tutorial-next-indicator {
         position: relative;
         z-index: 1;
-        display: block;
-        min-width: 150px;
+        display: flex;
+        justify-content: flex-end;
         margin: 28px 0 0 auto;
-        padding: 18px 26px;
-        border: 0;
-        border-radius: 999px;
-        background: #8e5c04;
-        color: #ffffff;
-        font-family: "TmoneyRoundWind", sans-serif;
+        color: #8e5c04;
+        font-family: "MabinogiClassic", sans-serif;
         font-size: 30px;
         font-weight: 800;
         line-height: 1;
-        cursor: pointer;
-        pointer-events: auto;
-        touch-action: manipulation;
+        animation: tutorial-next-blink 900ms ease-in-out infinite;
+        pointer-events: none;
+    }
+
+    @keyframes tutorial-next-blink {
+        0%,
+        100% {
+            opacity: 1;
+        }
+
+        50% {
+            opacity: 0.42;
+        }
     }
 </style>

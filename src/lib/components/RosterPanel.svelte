@@ -204,7 +204,7 @@
         border-radius: 18px;
         background: #7f5b1e52;
         color: #5b3900;
-        font-family: "TmoneyRoundWind", sans-serif;
+        font-family: "MabinogiClassic", sans-serif;
         font-size: 34px;
         font-weight: 800;
         line-height: 1;

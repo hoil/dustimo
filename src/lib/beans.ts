@@ -22,6 +22,14 @@ export type OwnedSeed = {
     count: number;
 };
 
+export type PlantedFarmSeed = {
+    seedSlotId: string;
+    seed: SeedDefinition;
+    count: number;
+    plantedAt: number;
+    growDurationMs: number;
+};
+
 export const initialOwnedBeans = [
     {
         id: "bean-1-owned-1",
