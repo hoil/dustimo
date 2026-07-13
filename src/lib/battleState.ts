@@ -159,11 +159,6 @@ const resetEnemyWave = () => {
     isWaveResetScheduled = true;
     setTimeout(() => {
         waveId += 1;
-        nextAttackerTeam = "ally";
-        teamTurnIndices = {
-            ally: 0,
-            enemy: 0,
-        };
         units = createInitialBattleUnits();
         isWaveResetScheduled = false;
         emitWaveResetEvent();
@@ -257,6 +252,15 @@ export const resumeBattleLoop = () => {
     }
 
     scheduleNextTurn(0);
+};
+
+export const pauseBattleLoop = () => {
+    isBattleLoopRunning = false;
+
+    if (timeoutId !== null) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+    }
 };
 
 export const getBattleSnapshot = (): BattleSnapshot => {

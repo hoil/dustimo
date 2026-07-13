@@ -1,4 +1,4 @@
-import { GameObjects, Scene } from "phaser";
+import { GameObjects, Scene, TintModes } from "phaser";
 
 import { EventBus } from "../EventBus";
 import {
@@ -11,6 +11,7 @@ import {
 import { getSafeAreaOrigin, useSafeAreaCamera, useSafeAreaDebugOverlay } from "../SafeArea";
 import {
     getBattleSnapshot,
+    pauseBattleLoop,
     resumeBattleLoop,
     subscribeBattleAttackEvents,
     subscribeBattleWaveResetEvents,
@@ -47,7 +48,8 @@ const BREATHING_SCALE_X = 1.035;
 const BREATHING_SCALE_Y = 0.965;
 const ATTACK_MOVE_DURATION = 150;
 const ATTACK_RETURN_DURATION = 160;
-const ATTACK_IMPACT_HOLD_DURATION = 35;
+const ATTACK_PRE_HIT_DELAY = 120;
+const ATTACK_POST_HIT_DELAY = 120;
 const MELEE_ATTACK_GAP = 82;
 const HP_BAR_WIDTH = 92;
 const HP_BAR_HEIGHT = 12;
@@ -55,6 +57,11 @@ const HP_BAR_Y = 22;
 const HP_BAR_BG_COLOR = 0x2b1417;
 const HP_BAR_FILL_COLOR = 0x62d85f;
 const HP_BAR_DANGER_COLOR = 0xff6b59;
+const ALLY_HIT_TINT = 0xff3b30;
+const ENEMY_HIT_TINT = 0xffffff;
+const ENEMY_HIT_FLASH_DURATION = 90;
+const HIT_SHAKE_DISTANCE = 18;
+const HIT_SHAKE_DURATION = 45;
 const DEAD_UNIT_ALPHA = 0.25;
 const WAVE_ALLY_EXIT_DURATION = 520;
 const WAVE_ALLY_ENTER_DURATION = 560;
@@ -67,6 +74,7 @@ type BattleUnit = {
     team: BattleTeam;
     container: GameObjects.Container;
     sprite: GameObjects.Image;
+    hitFlash: GameObjects.Image | null;
     hpBarBg: GameObjects.Rectangle;
     hpBarFill: GameObjects.Rectangle;
     homeX: number;
@@ -219,6 +227,7 @@ export class BattleScene extends Scene {
                 team: "ally",
                 container,
                 sprite: allyBean,
+                hitFlash: null,
                 hpBarBg,
                 hpBarFill,
                 homeX: layout.x,
@@ -236,19 +245,27 @@ export class BattleScene extends Scene {
                 .image(0, 0, BATTLE_ENEMY_1_TEXTURE_KEY)
                 .setOrigin(0.5, 1)
                 .setDisplaySize(ENEMY_DISPLAY_SIZE, ENEMY_DISPLAY_SIZE);
+            const enemyHitFlash = this.add
+                .image(0, 0, BATTLE_ENEMY_1_TEXTURE_KEY)
+                .setOrigin(0.5, 1)
+                .setDisplaySize(ENEMY_DISPLAY_SIZE, ENEMY_DISPLAY_SIZE)
+                .setTint(ENEMY_HIT_TINT)
+                .setTintMode(TintModes.FILL)
+                .setAlpha(0);
             const hpBarBg = this.createHpBarBackground();
             const hpBarFill = this.createHpBarFill();
             const container = this.add
-                .container(layout.x, BATTLE_AREA_BOTTOM_Y, [enemy, hpBarBg, hpBarFill])
+                .container(layout.x, BATTLE_AREA_BOTTOM_Y, [enemy, enemyHitFlash, hpBarBg, hpBarFill])
                 .setDepth(BATTLE_CHARACTER_DEPTH + this.allyUnits.length + index);
 
-            this.applyBreathingAnimation(enemy, 260 + index * 130);
+            this.applyBreathingAnimation([enemy, enemyHitFlash], 260 + index * 130);
 
             const battleUnit: BattleUnit = {
                 key: layout.key,
                 team: "enemy",
                 container,
                 sprite: enemy,
+                hitFlash: enemyHitFlash,
                 hpBarBg,
                 hpBarFill,
                 homeX: layout.x,
@@ -285,6 +302,8 @@ export class BattleScene extends Scene {
         if (!this.isSceneActive) {
             return;
         }
+
+        pauseBattleLoop();
 
         if (this.isAttackAnimationPlaying || this.attackEventQueue.length > 0) {
             this.pendingWaveResetEvent = event;
@@ -439,6 +458,7 @@ export class BattleScene extends Scene {
             .setAlpha(unitState?.isAlive === false ? DEAD_UNIT_ALPHA : 1)
             .setVisible(true);
         unit.sprite.clearTint();
+        unit.hitFlash?.setAlpha(0);
         this.updateHpBar(unit, unitState?.hp ?? 1, unitState?.maxHp ?? 1);
     }
 
@@ -452,19 +472,23 @@ export class BattleScene extends Scene {
             .setFillStyle(hpRatio <= 0.3 ? HP_BAR_DANGER_COLOR : HP_BAR_FILL_COLOR, 1);
     }
 
-    private applyBreathingAnimation(target: GameObjects.Image, delay = 0) {
-        const baseScaleX = target.scaleX;
-        const baseScaleY = target.scaleY;
+    private applyBreathingAnimation(target: GameObjects.Image | GameObjects.Image[], delay = 0) {
+        const targets = Array.isArray(target) ? target : [target];
 
-        this.tweens.add({
-            targets: target,
-            scaleX: baseScaleX * BREATHING_SCALE_X,
-            scaleY: baseScaleY * BREATHING_SCALE_Y,
-            duration: BREATHING_TWEEN_DURATION,
-            delay,
-            ease: "Sine.easeInOut",
-            yoyo: true,
-            repeat: -1,
+        targets.forEach((singleTarget) => {
+            const baseScaleX = singleTarget.scaleX;
+            const baseScaleY = singleTarget.scaleY;
+
+            this.tweens.add({
+                targets: singleTarget,
+                scaleX: baseScaleX * BREATHING_SCALE_X,
+                scaleY: baseScaleY * BREATHING_SCALE_Y,
+                duration: BREATHING_TWEEN_DURATION,
+                delay,
+                ease: "Sine.easeInOut",
+                yoyo: true,
+                repeat: -1,
+            });
         });
     }
 
@@ -542,9 +566,15 @@ export class BattleScene extends Scene {
             return;
         }
 
+        await this.wait(ATTACK_PRE_HIT_DELAY);
+
+        if (!this.isSceneActive || animationVersion !== this.animationVersion) {
+            return;
+        }
+
         this.playAttackSound(attacker.team);
         this.playHitEffect(target, event);
-        await this.wait(ATTACK_IMPACT_HOLD_DURATION);
+        await this.wait(ATTACK_POST_HIT_DELAY);
 
         if (!this.isSceneActive || animationVersion !== this.animationVersion) {
             return;
@@ -561,11 +591,20 @@ export class BattleScene extends Scene {
     }
 
     private playHitEffect(target: BattleUnit, event: BattleAttackEvent) {
-        target.sprite.setTint(0xffffff);
-        this.time.delayedCall(90, () => {
-            target.sprite.clearTint();
-        });
+        const hitTint = target.team === "ally"
+            ? ALLY_HIT_TINT
+            : ENEMY_HIT_TINT;
+
+        if (target.team === "enemy") {
+            this.playEnemyHitFlash(target);
+        } else {
+            target.sprite.setTint(hitTint);
+            this.time.delayedCall(90, () => {
+                target.sprite.clearTint();
+            });
+        }
         this.updateHpBar(target, event.targetHp, event.targetMaxHp);
+        this.playHitShake(target);
 
         const hitText = this.add
             .text(target.container.x, target.container.y - target.sprite.displayHeight * 0.72, `${event.damage}`, {
@@ -592,6 +631,53 @@ export class BattleScene extends Scene {
         if (event.isTargetDead) {
             this.playDeathEffect(target);
         }
+    }
+
+    private playEnemyHitFlash(target: BattleUnit) {
+        if (!target.hitFlash) {
+            target.sprite
+                .setTint(ENEMY_HIT_TINT)
+                .setTintMode(TintModes.FILL);
+            this.time.delayedCall(90, () => {
+                target.sprite.clearTint();
+            });
+
+            return;
+        }
+
+        this.tweens.killTweensOf(target.hitFlash, "alpha");
+        target.hitFlash
+            .setTint(ENEMY_HIT_TINT)
+            .setTintMode(TintModes.FILL)
+            .setAlpha(1);
+
+        this.tweens.add({
+            targets: target.hitFlash,
+            alpha: 0,
+            duration: ENEMY_HIT_FLASH_DURATION,
+            ease: "Sine.easeOut",
+            onComplete: () => {
+                target.hitFlash?.setAlpha(0);
+            },
+        });
+    }
+
+    private playHitShake(target: BattleUnit) {
+        const baseX = target.container.x;
+        const hitOffset = target.team === "ally"
+            ? -HIT_SHAKE_DISTANCE
+            : HIT_SHAKE_DISTANCE;
+
+        this.tweens.add({
+            targets: target.container,
+            x: baseX + hitOffset,
+            duration: HIT_SHAKE_DURATION,
+            ease: "Sine.easeOut",
+            yoyo: true,
+            onComplete: () => {
+                target.container.setX(baseX);
+            },
+        });
     }
 
     private playDeathEffect(target: BattleUnit) {
