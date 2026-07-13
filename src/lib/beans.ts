@@ -37,7 +37,7 @@ export type PlantedFarmSeed = {
     growDurationMs: number;
 };
 
-export const TUTORIAL_SEED_ID = "kidney-bean-seed";
+export const KIDNEY_BEAN_SEED_ID = "kidney-bean-seed";
 export const BEAN_GENE_COUNT = 4;
 
 export const beanGeneDefinitions = [
@@ -73,10 +73,23 @@ export const beanGeneDefinitions = [
     },
 ] as const satisfies readonly BeanGeneDefinition[];
 
-export const initialOwnedBeans: BeanDefinition[] = [];
+const createBasicBeanGenes = () => {
+    return beanGeneDefinitions.slice(0, BEAN_GENE_COUNT).map((gene) => ({ ...gene }));
+};
+
+export const initialOwnedBeans: BeanDefinition[] = Array.from(
+    { length: 4 },
+    (_, index) => ({
+        id: `basic-bean-${index + 1}`,
+        name: `기본콩 ${index + 1}`,
+        imageUrl: "/assets/beans/bean_1.png",
+        textureKey: "bean-1",
+        genes: createBasicBeanGenes(),
+    })
+);
 
 export const kidneyBeanSeed = {
-    id: TUTORIAL_SEED_ID,
+    id: KIDNEY_BEAN_SEED_ID,
     name: "완두콩 종자",
     imageUrl: "/assets/beans/bean_1.png",
     textureKey: "bean-1",

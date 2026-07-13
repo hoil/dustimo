@@ -10,7 +10,6 @@ import {
 
 const GAME_STORAGE_PREFIX = "beantoking:";
 const GAME_UID_STORAGE_KEY = `${GAME_STORAGE_PREFIX}uid`;
-const GAME_TUTORIAL_SEEN_STORAGE_KEY_PREFIX = `${GAME_STORAGE_PREFIX}tutorial-seen:`;
 const GAME_OWNED_BEANS_STORAGE_KEY = `${GAME_STORAGE_PREFIX}owned-beans`;
 const GAME_OWNED_SEEDS_STORAGE_KEY = `${GAME_STORAGE_PREFIX}owned-seeds`;
 const GAME_PLANTED_FARM_BEANS_STORAGE_KEY = `${GAME_STORAGE_PREFIX}planted-farm-beans`;
@@ -25,6 +24,18 @@ const cloneBeanDefinition = (bean: BeanDefinition): BeanDefinition => ({
 
 const createInitialOwnedBeans = (): BeanDefinition[] => {
     return initialOwnedBeans.map(cloneBeanDefinition);
+};
+
+const addMissingInitialOwnedBeans = (beans: readonly BeanDefinition[]) => {
+    const savedBeanIds = new Set(beans.map((bean) => bean.id));
+    const missingInitialBeans = initialOwnedBeans
+        .filter((bean) => !savedBeanIds.has(bean.id))
+        .map(cloneBeanDefinition);
+
+    return [
+        ...missingInitialBeans,
+        ...beans.map(cloneBeanDefinition),
+    ];
 };
 
 const createInitialOwnedSeeds = (): OwnedSeed[] => {
@@ -222,35 +233,8 @@ export const getOrCreateGameUid = () => {
     const uid = createRandomHex(16);
 
     localStorage.setItem(GAME_UID_STORAGE_KEY, uid);
-    localStorage.setItem(
-        `${GAME_TUTORIAL_SEEN_STORAGE_KEY_PREFIX}${uid}`,
-        "false"
-    );
 
     return uid;
-};
-
-export const hasSeenGameTutorial = (uid: string) => {
-    if (typeof localStorage === "undefined" || !uid) {
-        return true;
-    }
-
-    return (
-        localStorage.getItem(
-            `${GAME_TUTORIAL_SEEN_STORAGE_KEY_PREFIX}${uid}`
-        ) === "true"
-    );
-};
-
-export const markGameTutorialSeen = (uid: string) => {
-    if (typeof localStorage === "undefined" || !uid) {
-        return;
-    }
-
-    localStorage.setItem(
-        `${GAME_TUTORIAL_SEEN_STORAGE_KEY_PREFIX}${uid}`,
-        "true"
-    );
 };
 
 export const saveOwnedBeans = (beans: readonly BeanDefinition[]) => {
@@ -271,7 +255,13 @@ export const getOrCreateOwnedBeans = () => {
     );
 
     if (savedBeans) {
-        return savedBeans;
+        const beansWithInitialBeans = addMissingInitialOwnedBeans(savedBeans);
+
+        if (beansWithInitialBeans.length !== savedBeans.length) {
+            saveOwnedBeans(beansWithInitialBeans);
+        }
+
+        return beansWithInitialBeans;
     }
 
     const defaultBeans = createInitialOwnedBeans();

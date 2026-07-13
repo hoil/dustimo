@@ -1,9 +1,9 @@
 import { Boot } from "./scenes/Boot";
+import { BattleScene } from "./scenes/BattleScene";
 import { FarmScene } from "./scenes/FarmScene";
 import { IntroLoadingScene } from "./scenes/IntroLoadingScene";
 import { RosterScene } from "./scenes/RosterScene";
 import {
-    BattleScene,
     PlazaScene,
     ShopScene,
 } from "./scenes/SolidColorScene";

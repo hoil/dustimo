@@ -63,7 +63,7 @@ export class IntroLoadingScene extends Scene {
             return;
         }
 
-        this.scene.start("FarmScene");
+        this.scene.start("BattleScene");
     }
 
     private cleanupEventListeners() {
