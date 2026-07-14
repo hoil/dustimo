@@ -11,16 +11,7 @@
 >
     <div class="cart-farm-zone-background" aria-hidden="true"></div>
     <div class="cart-farm-zone-content">
-        <div class="cart-farm-zone-title">수레파밍존</div>
-        <div class="cart-farm-zone-cart" aria-hidden="true">
-            <div class="cart-body"></div>
-            <div class="cart-wheel cart-wheel-left"></div>
-            <div class="cart-wheel cart-wheel-right"></div>
-        </div>
-        <p class="cart-farm-zone-description">
-            DOM UI 영역<br />
-            전투 보상/수레 파밍 인터랙션 배치 예정
-        </p>
+        <img class="cart-farm-zone-wagon" src="/assets/battle/wagon.png" alt="" aria-hidden="true" />
     </div>
 </section>
 
@@ -54,66 +45,19 @@
         display: flex;
         flex-direction: column;
         align-items: center;
+        justify-content: center;
         box-sizing: border-box;
         height: 100%;
-        padding: 96px 72px 420px;
-        color: #fff4d7;
-        text-align: center;
+        padding: 0 72px;
         pointer-events: none;
     }
 
-    .cart-farm-zone-title {
-        font-size: 64px;
-        line-height: 1;
-        text-shadow: 0 8px 0 rgba(0, 0, 0, 0.28);
-        -webkit-text-stroke: 8px #5b350f;
-        paint-order: stroke fill;
-    }
-
-    .cart-farm-zone-cart {
-        position: relative;
-        width: 520px;
-        height: 300px;
-        margin-top: 120px;
-    }
-
-    .cart-body {
-        position: absolute;
-        left: 50%;
-        top: 48px;
-        width: 430px;
-        height: 170px;
-        border: 10px solid #633914;
-        border-radius: 36px 36px 54px 54px;
-        background: #c87b2f;
-        box-shadow: inset 0 -24px 0 rgba(83, 43, 14, 0.25), 0 18px 0 rgba(0, 0, 0, 0.18);
-        transform: translateX(-50%) skewX(-8deg);
-    }
-
-    .cart-wheel {
-        position: absolute;
-        bottom: 18px;
-        width: 104px;
-        height: 104px;
-        border: 12px solid #4b2a13;
-        border-radius: 50%;
-        background: #a55f26;
-        box-shadow: inset 0 0 0 16px #f4bf63;
-    }
-
-    .cart-wheel-left {
-        left: 112px;
-    }
-
-    .cart-wheel-right {
-        right: 112px;
-    }
-
-    .cart-farm-zone-description {
-        margin: 86px 0 0;
-        color: rgba(255, 244, 215, 0.88);
-        font-size: 38px;
-        line-height: 1.45;
-        text-shadow: 0 4px 0 rgba(0, 0, 0, 0.22);
+    .cart-farm-zone-wagon {
+        display: block;
+        width: 660px;
+        max-width: 86%;
+        height: auto;
+        object-fit: contain;
+        user-select: none;
     }
 </style>

@@ -2,7 +2,6 @@ import { Math as PhaserMath, type GameObjects, Scene } from "phaser";
 
 import { EventBus } from "../EventBus";
 import { FIELD_BACKGROUND_TEXTURE_KEY } from "../preloadAssets";
-import { startBackgroundMusic } from "../backgroundMusic";
 import type { PlantedFarmBean, PlantedFarmSeed } from "../../lib/beans";
 import {
     SAFE_AREA_CENTER_X,
@@ -102,7 +101,6 @@ export class FarmScene extends Scene {
 
     create() {
         useSafeAreaCamera(this);
-        startBackgroundMusic(this);
         this.createFieldBackground();
         this.createFarmGroups();
         useSafeAreaDebugOverlay(this);

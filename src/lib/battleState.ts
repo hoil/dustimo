@@ -45,15 +45,23 @@ export type BattleSnapshot = {
     units: BattleUnitState[];
 };
 
+export type BattleWaveTransitionState = {
+    event: BattleWaveResetEvent;
+    elapsedMs: number;
+};
+
 type BattleAttackEventListener = (event: BattleAttackEvent) => void;
 type BattleWaveResetEventListener = (event: BattleWaveResetEvent) => void;
+type BattlePhase = "running" | "waiting-wave-transition";
 
-const BATTLE_TURN_INTERVAL_MS = 620;
+const BATTLE_TURN_INTERVAL_MS = 780;
 const WAVE_RESET_EVENT_DELAY_MS = 220;
 const ALLY_MAX_HP = 100;
 const ALLY_ATTACK_POWER = 10;
-const ENEMY_MAX_HP = 20;
+const ENEMY_MAX_HP = 40;
 const ENEMY_ATTACK_POWER = 0;
+const MIN_ENEMY_COUNT_PER_WAVE = 1;
+const MAX_ENEMY_COUNT_PER_WAVE = 2;
 
 const battleUnitOrderByTeam = {
     ally: ["ally-1", "ally-2", "ally-3", "ally-4"],
@@ -70,21 +78,56 @@ let waveId = 1;
 let timeoutId: ReturnType<typeof setTimeout> | null = null;
 let isBattleLoopRunning = false;
 let isWaveResetScheduled = false;
+let battlePhase: BattlePhase = "running";
+let pendingBattleWaveResetEvent: BattleWaveResetEvent | null = null;
+let pendingBattleWaveTransitionStartedAt: number | null = null;
 let units: BattleUnitState[] = [];
 const attackListeners = new Set<BattleAttackEventListener>();
 const waveResetListeners = new Set<BattleWaveResetEventListener>();
 
 const cloneUnitState = (unit: BattleUnitState): BattleUnitState => ({ ...unit });
 
-const createInitialBattleUnits = (): BattleUnitState[] => [
+const cloneWaveResetEvent = (event: BattleWaveResetEvent): BattleWaveResetEvent => ({
+    ...event,
+    units: event.units.map(cloneUnitState),
+});
+
+const resetTurnOrderForWaveStart = () => {
+    nextAttackerTeam = "ally";
+    teamTurnIndices = {
+        ally: 0,
+        enemy: 0,
+    };
+};
+
+const createAllyBattleUnits = (): BattleUnitState[] => [
     { id: "ally-1", team: "ally", slotIndex: 1, maxHp: ALLY_MAX_HP, hp: ALLY_MAX_HP, attackPower: ALLY_ATTACK_POWER, isAlive: true },
     { id: "ally-2", team: "ally", slotIndex: 2, maxHp: ALLY_MAX_HP, hp: ALLY_MAX_HP, attackPower: ALLY_ATTACK_POWER, isAlive: true },
     { id: "ally-3", team: "ally", slotIndex: 3, maxHp: ALLY_MAX_HP, hp: ALLY_MAX_HP, attackPower: ALLY_ATTACK_POWER, isAlive: true },
     { id: "ally-4", team: "ally", slotIndex: 4, maxHp: ALLY_MAX_HP, hp: ALLY_MAX_HP, attackPower: ALLY_ATTACK_POWER, isAlive: true },
-    { id: "enemy-1", team: "enemy", slotIndex: 1, maxHp: ENEMY_MAX_HP, hp: ENEMY_MAX_HP, attackPower: ENEMY_ATTACK_POWER, isAlive: true },
-    { id: "enemy-2", team: "enemy", slotIndex: 2, maxHp: ENEMY_MAX_HP, hp: ENEMY_MAX_HP, attackPower: ENEMY_ATTACK_POWER, isAlive: true },
-    { id: "enemy-3", team: "enemy", slotIndex: 3, maxHp: ENEMY_MAX_HP, hp: ENEMY_MAX_HP, attackPower: ENEMY_ATTACK_POWER, isAlive: true },
-    { id: "enemy-4", team: "enemy", slotIndex: 4, maxHp: ENEMY_MAX_HP, hp: ENEMY_MAX_HP, attackPower: ENEMY_ATTACK_POWER, isAlive: true },
+];
+
+const getRandomEnemyCount = () => {
+    return MIN_ENEMY_COUNT_PER_WAVE + Math.floor(Math.random() * (MAX_ENEMY_COUNT_PER_WAVE - MIN_ENEMY_COUNT_PER_WAVE + 1));
+};
+
+const createEnemyBattleUnits = (): BattleUnitState[] => {
+    const enemyCount = getRandomEnemyCount();
+
+    return battleUnitOrderByTeam.enemy.slice(0, enemyCount).map((enemyId, index) => ({
+        id: enemyId,
+        team: "enemy",
+        slotIndex: index + 1,
+        maxHp: ENEMY_MAX_HP,
+        hp: ENEMY_MAX_HP,
+        attackPower: ENEMY_ATTACK_POWER,
+        isAlive: true,
+    }));
+};
+
+const createInitialBattleUnits = (): BattleUnitState[] => [
+    ...createAllyBattleUnits(),
+    ...createEnemyBattleUnits(),
 ];
 
 const ensureBattleUnits = () => {
@@ -139,8 +182,17 @@ const emitAttackEvent = (event: BattleAttackEvent) => {
     attackListeners.forEach((listener) => listener(event));
 };
 
-const emitWaveResetEvent = () => {
-    const event = {
+const stopBattleLoopTimer = () => {
+    isBattleLoopRunning = false;
+
+    if (timeoutId !== null) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+    }
+};
+
+const createWaveResetEvent = () => {
+    const waveResetEvent = {
         id: eventId,
         waveId,
         units: units.map(cloneUnitState),
@@ -148,6 +200,11 @@ const emitWaveResetEvent = () => {
     } satisfies BattleWaveResetEvent;
 
     eventId += 1;
+
+    return waveResetEvent;
+};
+
+const emitWaveResetEvent = (event: BattleWaveResetEvent) => {
     waveResetListeners.forEach((listener) => listener(event));
 };
 
@@ -159,9 +216,14 @@ const resetEnemyWave = () => {
     isWaveResetScheduled = true;
     setTimeout(() => {
         waveId += 1;
+        resetTurnOrderForWaveStart();
         units = createInitialBattleUnits();
         isWaveResetScheduled = false;
-        emitWaveResetEvent();
+        pendingBattleWaveResetEvent = createWaveResetEvent();
+        pendingBattleWaveTransitionStartedAt = null;
+        battlePhase = "waiting-wave-transition";
+        stopBattleLoopTimer();
+        emitWaveResetEvent(pendingBattleWaveResetEvent);
     }, WAVE_RESET_EVENT_DELAY_MS);
 };
 
@@ -221,7 +283,7 @@ const resolveOneTurn = () => {
 };
 
 const scheduleNextTurn = (delay = BATTLE_TURN_INTERVAL_MS) => {
-    if (!isBattleLoopRunning || timeoutId !== null) {
+    if (!isBattleLoopRunning || timeoutId !== null || battlePhase !== "running") {
         return;
     }
 
@@ -235,6 +297,10 @@ const scheduleNextTurn = (delay = BATTLE_TURN_INTERVAL_MS) => {
 export const startBattleLoop = () => {
     ensureBattleUnits();
 
+    if (battlePhase !== "running") {
+        return;
+    }
+
     if (!isBattleLoopRunning) {
         isBattleLoopRunning = true;
     }
@@ -244,23 +310,79 @@ export const startBattleLoop = () => {
 
 export const resumeBattleLoop = () => {
     ensureBattleUnits();
-    isBattleLoopRunning = true;
 
-    if (timeoutId !== null) {
-        clearTimeout(timeoutId);
-        timeoutId = null;
+    if (battlePhase !== "running") {
+        return;
     }
 
+    if (isBattleLoopRunning && timeoutId !== null) {
+        return;
+    }
+
+    isBattleLoopRunning = true;
+    scheduleNextTurn();
+};
+
+export const resumeBattleLoopImmediately = () => {
+    ensureBattleUnits();
+
+    if (battlePhase !== "running") {
+        return;
+    }
+
+    if (isBattleLoopRunning && timeoutId !== null) {
+        return;
+    }
+
+    isBattleLoopRunning = true;
     scheduleNextTurn(0);
 };
 
 export const pauseBattleLoop = () => {
-    isBattleLoopRunning = false;
+    stopBattleLoopTimer();
+};
 
-    if (timeoutId !== null) {
-        clearTimeout(timeoutId);
-        timeoutId = null;
+export const getPendingBattleWaveResetEvent = () => {
+    return pendingBattleWaveResetEvent
+        ? cloneWaveResetEvent(pendingBattleWaveResetEvent)
+        : null;
+};
+
+export const markBattleWaveTransitionStarted = (eventIdToStart: number) => {
+    if (pendingBattleWaveResetEvent?.id !== eventIdToStart) {
+        return false;
     }
+
+    if (pendingBattleWaveTransitionStartedAt === null) {
+        pendingBattleWaveTransitionStartedAt = performance.now();
+    }
+
+    return true;
+};
+
+export const getPendingBattleWaveTransitionState = (): BattleWaveTransitionState | null => {
+    if (!pendingBattleWaveResetEvent) {
+        return null;
+    }
+
+    return {
+        event: cloneWaveResetEvent(pendingBattleWaveResetEvent),
+        elapsedMs: pendingBattleWaveTransitionStartedAt === null
+            ? 0
+            : Math.max(0, performance.now() - pendingBattleWaveTransitionStartedAt),
+    };
+};
+
+export const consumePendingBattleWaveResetEvent = (eventIdToConsume: number) => {
+    if (pendingBattleWaveResetEvent?.id !== eventIdToConsume) {
+        return false;
+    }
+
+    pendingBattleWaveResetEvent = null;
+    pendingBattleWaveTransitionStartedAt = null;
+    battlePhase = "running";
+
+    return true;
 };
 
 export const getBattleSnapshot = (): BattleSnapshot => {

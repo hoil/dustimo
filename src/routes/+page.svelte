@@ -32,7 +32,6 @@
         type MainTabKey
     } from "../lib/navigation";
     import { calculateGameFrame } from "../lib/gameFrame";
-    import { startBattleLoop } from "../lib/battleState";
     import { copyTextWithFallback } from "../lib/clipboard";
     import BottomMenu from "../lib/components/BottomMenu.svelte";
     import DebugPanel from "../lib/components/DebugPanel.svelte";
@@ -143,7 +142,7 @@
     let activeHarvestedBean: BeanDefinition | null = null;
     let isSettingsPopupVisible = false;
     let isSettingsShortcutPanelExpanded = true;
-    let activeSettingsShortcutPopup: "inbox" | "tester-thanks" | "game-summary" | null = null;
+    let activeSettingsShortcutPopup: "inbox" | "tester-thanks" | null = null;
     let lockedMainTabs: MainTabKey[] = [];
     let unreadMainTabs: MainTabKey[] = [];
     $: EventBus.emit("debug-safe-area-changed", isSafeAreaDebugEnabled);
@@ -445,7 +444,6 @@
         resetIntroLoadingState();
         isLoadingOverlayVisible = true;
         startInitialPopupFlow();
-        startBattleLoop();
         hasGameStarted = true;
         startIntroLoadingScene();
 
@@ -714,7 +712,7 @@
 
     };
 
-    const openSettingsShortcutPopup = (popupKey: "inbox" | "tester-thanks" | "game-summary") => {
+    const openSettingsShortcutPopup = (popupKey: "inbox" | "tester-thanks") => {
 
         activeSettingsShortcutPopup = popupKey;
         isSettingsPopupVisible = false;
@@ -737,7 +735,7 @@
             return "게임테스터 감사의인사문";
         }
 
-        return "콩생역전 설명요약";
+        return "";
 
     };
 
@@ -751,7 +749,7 @@
             return "게임테스터 여러분, 테스트에 참여해주셔서 감사합니다.";
         }
 
-        return "콩생역전은 콩들과 함께 성장하고 재배하며 역전을 만들어가는 이야기입니다.";
+        return "";
 
     };
 
@@ -1000,7 +998,6 @@
                         onTogglePanel={toggleSettingsShortcutPanel}
                         onOpenInbox={() => openSettingsShortcutPopup("inbox")}
                         onOpenTesterThanks={() => openSettingsShortcutPopup("tester-thanks")}
-                        onOpenGameSummary={() => openSettingsShortcutPopup("game-summary")}
                     />
 
                     {#if activeMainTab === "roster"}

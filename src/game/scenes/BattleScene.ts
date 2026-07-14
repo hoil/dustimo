@@ -10,9 +10,12 @@ import {
 } from "../preloadAssets";
 import { getSafeAreaOrigin, useSafeAreaCamera, useSafeAreaDebugOverlay } from "../SafeArea";
 import {
+    consumePendingBattleWaveResetEvent,
     getBattleSnapshot,
+    getPendingBattleWaveTransitionState,
+    markBattleWaveTransitionStarted,
     pauseBattleLoop,
-    resumeBattleLoop,
+    resumeBattleLoopImmediately,
     subscribeBattleAttackEvents,
     subscribeBattleWaveResetEvents,
     type BattleAttackEvent,
@@ -43,6 +46,8 @@ const ENEMY_LAYOUTS = [
     { key: "enemy-3", x: 870 },
     { key: "enemy-4", x: 995 },
 ] as const;
+const ENEMY_LAYOUT_GAP = 125;
+const ENEMY_LAYOUT_CENTER_X = (ENEMY_LAYOUTS[0].x + ENEMY_LAYOUTS[ENEMY_LAYOUTS.length - 1].x) / 2;
 const BREATHING_TWEEN_DURATION = 1050;
 const BREATHING_SCALE_X = 1.035;
 const BREATHING_SCALE_Y = 0.965;
@@ -50,6 +55,8 @@ const ATTACK_MOVE_DURATION = 150;
 const ATTACK_RETURN_DURATION = 160;
 const ATTACK_PRE_HIT_DELAY = 120;
 const ATTACK_POST_HIT_DELAY = 120;
+const ATTACK_SOUND_MAX_EVENT_AGE_MS = 900;
+const ATTACK_SOUND_FOCUS_RESTORE_GRACE_MS = 250;
 const MELEE_ATTACK_GAP = 82;
 const HP_BAR_WIDTH = 92;
 const HP_BAR_HEIGHT = 12;
@@ -68,6 +75,15 @@ const WAVE_ALLY_ENTER_DURATION = 560;
 const WAVE_FADE_DURATION = 320;
 const WAVE_FADE_HOLD_DURATION = 120;
 const WAVE_OFFSCREEN_PADDING = 180;
+const WAVE_ALLY_ENTER_STAGGER = 55;
+const WAVE_ALLY_EXIT_END_MS = WAVE_ALLY_EXIT_DURATION;
+const WAVE_FADE_OUT_END_MS = WAVE_ALLY_EXIT_END_MS + WAVE_FADE_DURATION;
+const WAVE_FADE_HOLD_END_MS = WAVE_FADE_OUT_END_MS + WAVE_FADE_HOLD_DURATION;
+const WAVE_FADE_IN_END_MS = WAVE_FADE_HOLD_END_MS + WAVE_FADE_DURATION;
+const WAVE_ALLY_ENTER_START_MS = WAVE_FADE_IN_END_MS;
+const WAVE_TRANSITION_TOTAL_DURATION_MS = WAVE_ALLY_ENTER_START_MS
+    + WAVE_ALLY_ENTER_DURATION
+    + (ALLY_LAYOUTS.length - 1) * WAVE_ALLY_ENTER_STAGGER;
 
 type BattleUnit = {
     key: BattleUnitId;
@@ -99,6 +115,9 @@ export class BattleScene extends Scene {
     private isAttackAnimationPlaying = false;
     private isWaveTransitionPlaying = false;
     private isSceneActive = false;
+    private isDocumentVisible = typeof document === "undefined" || document.visibilityState === "visible";
+    private isWindowFocused = typeof document === "undefined" || document.hasFocus();
+    private lastFocusRestoredAt = 0;
     private animationVersion = 0;
 
     constructor() {
@@ -119,6 +138,7 @@ export class BattleScene extends Scene {
         this.unsubscribeBattleAttackEvents = subscribeBattleAttackEvents(this.queueBattleAttackEvent);
         this.unsubscribeBattleWaveResetEvents = subscribeBattleWaveResetEvents(this.applyBattleWaveResetEvent);
         this.scale.on("resize", this.updateExtendedAreaLayout, this);
+        this.registerAudioFocusListeners();
         this.events.once("shutdown", () => {
             this.resetRuntimeFlowState();
             this.unsubscribeBattleAttackEvents?.();
@@ -126,6 +146,7 @@ export class BattleScene extends Scene {
             this.unsubscribeBattleWaveResetEvents?.();
             this.unsubscribeBattleWaveResetEvents = null;
             this.scale.off("resize", this.updateExtendedAreaLayout, this);
+            this.unregisterAudioFocusListeners();
         });
         useSafeAreaDebugOverlay(this);
         EventBus.emit("current-scene-ready", this);
@@ -141,7 +162,18 @@ export class BattleScene extends Scene {
         });
         this.battleFadeOverlay?.setVisible(false).setAlpha(0);
         this.applyUnitStates(getBattleSnapshot().units);
-        resumeBattleLoop();
+        const pendingWaveTransitionState = getPendingBattleWaveTransitionState();
+
+        if (pendingWaveTransitionState) {
+            this.playWaveTransition(
+                pendingWaveTransitionState.event,
+                pendingWaveTransitionState.elapsedMs
+            );
+
+            return;
+        }
+
+        resumeBattleLoopImmediately();
     }
 
     private resetRuntimeFlowState() {
@@ -324,7 +356,7 @@ export class BattleScene extends Scene {
         this.playWaveTransition(event);
     }
 
-    private async playWaveTransition(event: BattleWaveResetEvent) {
+    private async playWaveTransition(event: BattleWaveResetEvent, elapsedMs = 0) {
         if (this.isWaveTransitionPlaying) {
             this.attackEventQueue = [];
             this.pendingWaveResetEvent = event;
@@ -333,46 +365,74 @@ export class BattleScene extends Scene {
             return;
         }
 
+        markBattleWaveTransitionStarted(event.id);
+
         this.attackEventQueue = [];
         this.isWaveTransitionPlaying = true;
         this.animationVersion += 1;
+        const transitionElapsedMs = this.clampWaveTransitionElapsed(elapsedMs);
         this.getBattleUnits().forEach((unit) => {
             this.tweens.killTweensOf(unit.container);
         });
-        this.allyUnits.forEach((unit) => {
-            unit.container
-                .setAlpha(1)
-                .setVisible(true)
-                .setDepth(BATTLE_ATTACKER_DEPTH);
-        });
 
-        await this.runAlliesOffscreenRight();
+        this.applyWaveTransitionState(event, transitionElapsedMs);
+
+        if (transitionElapsedMs >= WAVE_TRANSITION_TOTAL_DURATION_MS) {
+            this.completeWaveTransition(event);
+
+            return;
+        }
+
+        if (transitionElapsedMs < WAVE_ALLY_EXIT_END_MS) {
+            await this.runAlliesOffscreenRight(WAVE_ALLY_EXIT_END_MS - transitionElapsedMs);
+
+            if (!this.isSceneActive) {
+                return;
+            }
+        }
+
+        if (transitionElapsedMs < WAVE_FADE_OUT_END_MS) {
+            await this.fadeBattleAreaToBlack(WAVE_FADE_OUT_END_MS - Math.max(transitionElapsedMs, WAVE_ALLY_EXIT_END_MS));
+
+            if (!this.isSceneActive) {
+                return;
+            }
+        }
+
+        if (transitionElapsedMs < WAVE_ALLY_ENTER_START_MS) {
+            this.applyUnitStates(event.units);
+            this.placeAlliesOffscreenLeft();
+        }
+
+        if (transitionElapsedMs < WAVE_FADE_HOLD_END_MS) {
+            await this.wait(WAVE_FADE_HOLD_END_MS - Math.max(transitionElapsedMs, WAVE_FADE_OUT_END_MS));
+
+            if (!this.isSceneActive) {
+                return;
+            }
+        }
+
+        if (transitionElapsedMs < WAVE_FADE_IN_END_MS) {
+            await this.fadeBattleAreaFromBlack(WAVE_FADE_IN_END_MS - Math.max(transitionElapsedMs, WAVE_FADE_HOLD_END_MS));
+
+            if (!this.isSceneActive) {
+                return;
+            }
+        }
+
+        await this.runAlliesToHomeFromElapsed(Math.max(transitionElapsedMs, WAVE_ALLY_ENTER_START_MS));
 
         if (!this.isSceneActive) {
             return;
         }
 
-        await this.fadeBattleAreaToBlack();
+        this.completeWaveTransition(event);
+    }
 
+    private completeWaveTransition(event: BattleWaveResetEvent) {
         if (!this.isSceneActive) {
             return;
         }
-
-        this.applyUnitStates(event.units);
-        this.placeAlliesOffscreenLeft();
-        await this.wait(WAVE_FADE_HOLD_DURATION);
-
-        if (!this.isSceneActive) {
-            return;
-        }
-
-        await this.fadeBattleAreaFromBlack();
-
-        if (!this.isSceneActive) {
-            return;
-        }
-
-        await this.runAlliesToHome();
 
         this.attackEventQueue = [];
         this.applyUnitStates(getBattleSnapshot().units);
@@ -382,15 +442,16 @@ export class BattleScene extends Scene {
         this.isAttackAnimationPlaying = false;
         this.isWaveTransitionPlaying = false;
         this.pendingWaveResetEvent = null;
-        resumeBattleLoop();
+        consumePendingBattleWaveResetEvent(event.id);
+        resumeBattleLoopImmediately();
     }
 
-    private runAlliesOffscreenRight() {
+    private runAlliesOffscreenRight(duration = WAVE_ALLY_EXIT_DURATION) {
         const exitX = this.getFrameRight() + WAVE_OFFSCREEN_PADDING;
 
         return this.tweenBattleTarget(this.allyUnits.map((unit) => unit.container), {
             x: exitX,
-            duration: WAVE_ALLY_EXIT_DURATION,
+            duration: Math.max(0, duration),
             ease: "Sine.easeIn",
         });
     }
@@ -407,38 +468,159 @@ export class BattleScene extends Scene {
         });
     }
 
-    private runAlliesToHome() {
+    private runAlliesToHomeFromElapsed(elapsedMs = WAVE_ALLY_ENTER_START_MS) {
         return Promise.all(
-            this.allyUnits.map((unit, index) => this.tweenBattleTarget(unit.container, {
-                x: unit.homeX,
-                duration: WAVE_ALLY_ENTER_DURATION,
-                delay: index * 55,
-                ease: "Sine.easeOut",
-            }))
+            this.allyUnits.map((unit, index) => {
+                const unitStartMs = WAVE_ALLY_ENTER_START_MS + index * WAVE_ALLY_ENTER_STAGGER;
+                const unitEndMs = unitStartMs + WAVE_ALLY_ENTER_DURATION;
+
+                if (elapsedMs >= unitEndMs) {
+                    unit.container.setX(unit.homeX);
+
+                    return Promise.resolve();
+                }
+
+                return this.tweenBattleTarget(unit.container, {
+                    x: unit.homeX,
+                    duration: Math.max(0, unitEndMs - Math.max(elapsedMs, unitStartMs)),
+                    delay: Math.max(0, unitStartMs - elapsedMs),
+                    ease: "Sine.easeOut",
+                });
+            })
         ).then(() => undefined);
     }
 
-    private fadeBattleAreaToBlack() {
+    private fadeBattleAreaToBlack(duration = WAVE_FADE_DURATION) {
         this.updateBattleFadeOverlayLayout();
-        this.battleFadeOverlay
-            ?.setAlpha(0)
-            .setVisible(true);
+        this.battleFadeOverlay?.setVisible(true);
 
         return this.tweenBattleTarget(this.battleFadeOverlay ? [this.battleFadeOverlay] : [], {
             alpha: 1,
-            duration: WAVE_FADE_DURATION,
+            duration: Math.max(0, duration),
             ease: "Sine.easeInOut",
         });
     }
 
-    private async fadeBattleAreaFromBlack() {
+    private async fadeBattleAreaFromBlack(duration = WAVE_FADE_DURATION) {
         await this.tweenBattleTarget(this.battleFadeOverlay ? [this.battleFadeOverlay] : [], {
             alpha: 0,
-            duration: WAVE_FADE_DURATION,
+            duration: Math.max(0, duration),
             ease: "Sine.easeInOut",
         });
 
         this.battleFadeOverlay?.setVisible(false);
+    }
+
+    private applyWaveTransitionState(event: BattleWaveResetEvent, elapsedMs: number) {
+        const exitX = this.getFrameRight() + WAVE_OFFSCREEN_PADDING;
+        const enterX = this.getFrameLeft() - WAVE_OFFSCREEN_PADDING;
+
+        this.updateBattleFadeOverlayLayout();
+
+        if (elapsedMs < WAVE_ALLY_EXIT_END_MS) {
+            const exitProgress = this.easeSineIn(elapsedMs / WAVE_ALLY_EXIT_DURATION);
+
+            this.enemyUnits.forEach((unit) => {
+                unit.container
+                    .setAlpha(0)
+                    .setVisible(false)
+                    .setDepth(unit.depth);
+            });
+            this.allyUnits.forEach((unit) => {
+                unit.container
+                    .setX(this.lerp(unit.homeX, exitX, exitProgress))
+                    .setAlpha(1)
+                    .setVisible(true)
+                    .setDepth(BATTLE_ATTACKER_DEPTH);
+            });
+            this.battleFadeOverlay?.setAlpha(0).setVisible(false);
+
+            return;
+        }
+
+        if (elapsedMs < WAVE_FADE_OUT_END_MS) {
+            const fadeProgress = this.easeSineInOut((elapsedMs - WAVE_ALLY_EXIT_END_MS) / WAVE_FADE_DURATION);
+
+            this.enemyUnits.forEach((unit) => {
+                unit.container
+                    .setAlpha(0)
+                    .setVisible(false)
+                    .setDepth(unit.depth);
+            });
+            this.allyUnits.forEach((unit) => {
+                unit.container
+                    .setX(exitX)
+                    .setAlpha(1)
+                    .setVisible(true)
+                    .setDepth(BATTLE_ATTACKER_DEPTH);
+            });
+            this.battleFadeOverlay?.setAlpha(fadeProgress).setVisible(true);
+
+            return;
+        }
+
+        this.applyUnitStates(event.units);
+        this.allyUnits.forEach((unit) => {
+            unit.container
+                .setX(enterX)
+                .setAlpha(1)
+                .setVisible(true)
+                .setDepth(BATTLE_ATTACKER_DEPTH);
+        });
+
+        if (elapsedMs < WAVE_FADE_HOLD_END_MS) {
+            this.battleFadeOverlay?.setAlpha(1).setVisible(true);
+
+            return;
+        }
+
+        if (elapsedMs < WAVE_FADE_IN_END_MS) {
+            const fadeProgress = this.easeSineInOut((elapsedMs - WAVE_FADE_HOLD_END_MS) / WAVE_FADE_DURATION);
+
+            this.battleFadeOverlay?.setAlpha(1 - fadeProgress).setVisible(true);
+
+            return;
+        }
+
+        this.battleFadeOverlay?.setAlpha(0).setVisible(false);
+        this.allyUnits.forEach((unit, index) => {
+            const unitStartMs = WAVE_ALLY_ENTER_START_MS + index * WAVE_ALLY_ENTER_STAGGER;
+            const unitProgress = this.easeSineOut((elapsedMs - unitStartMs) / WAVE_ALLY_ENTER_DURATION);
+
+            unit.container
+                .setX(this.lerp(enterX, unit.homeX, unitProgress))
+                .setAlpha(1)
+                .setVisible(true)
+                .setDepth(BATTLE_ATTACKER_DEPTH);
+        });
+    }
+
+    private clampWaveTransitionElapsed(elapsedMs: number) {
+        return Math.min(WAVE_TRANSITION_TOTAL_DURATION_MS, Math.max(0, elapsedMs));
+    }
+
+    private lerp(start: number, end: number, progress: number) {
+        const clampedProgress = Math.min(1, Math.max(0, progress));
+
+        return start + (end - start) * clampedProgress;
+    }
+
+    private easeSineIn(progress: number) {
+        const clampedProgress = Math.min(1, Math.max(0, progress));
+
+        return 1 - Math.cos((clampedProgress * Math.PI) / 2);
+    }
+
+    private easeSineOut(progress: number) {
+        const clampedProgress = Math.min(1, Math.max(0, progress));
+
+        return Math.sin((clampedProgress * Math.PI) / 2);
+    }
+
+    private easeSineInOut(progress: number) {
+        const clampedProgress = Math.min(1, Math.max(0, progress));
+
+        return -(Math.cos(Math.PI * clampedProgress) - 1) / 2;
     }
 
     private applyUnitStates(unitStates: BattleUnitState[]) {
@@ -446,20 +628,52 @@ export class BattleScene extends Scene {
             unitStates.map((unitState) => [unitState.id, unitState])
         );
 
+        this.updateEnemyHomePositions(unitStates);
+
         this.getBattleUnits().forEach((unit) => {
             this.applyUnitState(unit, unitStateById.get(unit.key));
         });
     }
 
+    private updateEnemyHomePositions(unitStates: BattleUnitState[]) {
+        const visibleEnemyStates = unitStates
+            .filter((unitState) => unitState.team === "enemy")
+            .sort((a, b) => a.slotIndex - b.slotIndex);
+        const startX = ENEMY_LAYOUT_CENTER_X - ENEMY_LAYOUT_GAP * (visibleEnemyStates.length - 1) / 2;
+
+        visibleEnemyStates.forEach((unitState, index) => {
+            const enemyUnit = this.getBattleUnit(unitState.id);
+
+            if (!enemyUnit) {
+                return;
+            }
+
+            enemyUnit.homeX = startX + ENEMY_LAYOUT_GAP * index;
+        });
+    }
+
     private applyUnitState(unit: BattleUnit, unitState?: BattleUnitState) {
+        if (!unitState) {
+            unit.container
+                .setVisible(false)
+                .setAlpha(0)
+                .setDepth(unit.depth)
+                .setX(unit.homeX);
+            unit.sprite.clearTint();
+            unit.hitFlash?.setAlpha(0);
+            this.updateHpBar(unit, 0, 1);
+
+            return;
+        }
+
         unit.container
             .setX(unit.homeX)
             .setDepth(unit.depth)
-            .setAlpha(unitState?.isAlive === false ? DEAD_UNIT_ALPHA : 1)
+            .setAlpha(unitState.isAlive === false ? DEAD_UNIT_ALPHA : 1)
             .setVisible(true);
         unit.sprite.clearTint();
         unit.hitFlash?.setAlpha(0);
-        this.updateHpBar(unit, unitState?.hp ?? 1, unitState?.maxHp ?? 1);
+        this.updateHpBar(unit, unitState.hp, unitState.maxHp);
     }
 
     private updateHpBar(unit: BattleUnit, hp: number, maxHp: number) {
@@ -536,7 +750,11 @@ export class BattleScene extends Scene {
         }
     }
 
-    private playAttackSound(attackerTeam: BattleTeam) {
+    private playAttackSound(attackerTeam: BattleTeam, eventCreatedAt: number) {
+        if (!this.shouldPlayAttackSound(eventCreatedAt)) {
+            return;
+        }
+
         const soundKey = attackerTeam === "ally"
             ? ALLY_ATTACK_SOUND_KEY
             : ENEMY_ATTACK_SOUND_KEY;
@@ -547,6 +765,67 @@ export class BattleScene extends Scene {
             // Ignore sound playback failures caused by browser audio policies.
         }
     }
+
+    private shouldPlayAttackSound(eventCreatedAt: number) {
+        const now = performance.now();
+
+        if (!this.isDocumentVisible || !this.isWindowFocused) {
+            return false;
+        }
+
+        if (now - this.lastFocusRestoredAt < ATTACK_SOUND_FOCUS_RESTORE_GRACE_MS) {
+            return false;
+        }
+
+        return now - eventCreatedAt <= ATTACK_SOUND_MAX_EVENT_AGE_MS;
+    }
+
+    private registerAudioFocusListeners() {
+        this.updateAudioFocusState();
+
+        if (typeof document !== "undefined") {
+            document.addEventListener("visibilitychange", this.handleDocumentVisibilityChange);
+        }
+
+        if (typeof window !== "undefined") {
+            window.addEventListener("focus", this.handleWindowFocus);
+            window.addEventListener("blur", this.handleWindowBlur);
+        }
+    }
+
+    private unregisterAudioFocusListeners() {
+        if (typeof document !== "undefined") {
+            document.removeEventListener("visibilitychange", this.handleDocumentVisibilityChange);
+        }
+
+        if (typeof window !== "undefined") {
+            window.removeEventListener("focus", this.handleWindowFocus);
+            window.removeEventListener("blur", this.handleWindowBlur);
+        }
+    }
+
+    private updateAudioFocusState() {
+        const wasAudible = this.isDocumentVisible && this.isWindowFocused;
+
+        this.isDocumentVisible = typeof document === "undefined" || document.visibilityState === "visible";
+        this.isWindowFocused = typeof document === "undefined" || document.hasFocus();
+
+        if (!wasAudible && this.isDocumentVisible && this.isWindowFocused) {
+            this.lastFocusRestoredAt = performance.now();
+        }
+    }
+
+    private handleDocumentVisibilityChange = () => {
+        this.updateAudioFocusState();
+    };
+
+    private handleWindowFocus = () => {
+        this.updateAudioFocusState();
+    };
+
+    private handleWindowBlur = () => {
+        this.updateAudioFocusState();
+    };
 
     private async performMeleeAttack(attacker: BattleUnit, target: BattleUnit, event: BattleAttackEvent) {
         const animationVersion = this.animationVersion;
@@ -572,7 +851,7 @@ export class BattleScene extends Scene {
             return;
         }
 
-        this.playAttackSound(attacker.team);
+        this.playAttackSound(attacker.team, event.createdAt);
         this.playHitEffect(target, event);
         await this.wait(ATTACK_POST_HIT_DELAY);
 
@@ -645,7 +924,7 @@ export class BattleScene extends Scene {
             return;
         }
 
-        this.tweens.killTweensOf(target.hitFlash, "alpha");
+        this.tweens.killTweensOf(target.hitFlash);
         target.hitFlash
             .setTint(ENEMY_HIT_TINT)
             .setTintMode(TintModes.FILL)

@@ -1,6 +1,7 @@
 import { Scene } from "phaser";
 
 import { EventBus } from "../EventBus";
+import { startBackgroundMusic } from "../backgroundMusic";
 import { phaserInitialAudioAssets, phaserInitialImageAssets } from "../preloadAssets";
 
 export class IntroLoadingScene extends Scene {
@@ -63,6 +64,7 @@ export class IntroLoadingScene extends Scene {
             return;
         }
 
+        startBackgroundMusic(this);
         this.scene.start("BattleScene");
     }
 
