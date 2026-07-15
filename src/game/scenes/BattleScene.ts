@@ -25,6 +25,7 @@ import {
     type BattleWaveResetEvent,
 } from "../../lib/battleState";
 import { BATTLE_AREA_BOTTOM_Y, battleArea } from "../../lib/battleLayout";
+import { BATTLE_CART_ITEM_DROP_REQUESTED_EVENT } from "../../lib/battleCartRewards";
 
 const BATTLE_BACKGROUND_DEPTH = 0;
 const BATTLE_GUIDE_DEPTH = 1;
@@ -48,9 +49,9 @@ const ENEMY_LAYOUTS = [
 ] as const;
 const ENEMY_LAYOUT_GAP = 125;
 const ENEMY_LAYOUT_CENTER_X = (ENEMY_LAYOUTS[0].x + ENEMY_LAYOUTS[ENEMY_LAYOUTS.length - 1].x) / 2;
-const BREATHING_TWEEN_DURATION = 1050;
-const BREATHING_SCALE_X = 1.035;
-const BREATHING_SCALE_Y = 0.965;
+const BREATHING_TWEEN_DURATION = 900;
+const BREATHING_SCALE_X = 0.95;
+const BREATHING_SCALE_Y = 1.05;
 const ATTACK_MOVE_DURATION = 150;
 const ATTACK_RETURN_DURATION = 160;
 const ATTACK_PRE_HIT_DELAY = 120;
@@ -366,6 +367,9 @@ export class BattleScene extends Scene {
         }
 
         markBattleWaveTransitionStarted(event.id);
+        if (elapsedMs === 0) {
+            EventBus.emit(BATTLE_CART_ITEM_DROP_REQUESTED_EVENT);
+        }
 
         this.attackEventQueue = [];
         this.isWaveTransitionPlaying = true;

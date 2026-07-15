@@ -1,0 +1,1 @@
+export const BATTLE_CART_ITEM_DROP_REQUESTED_EVENT = "battle-cart-item-drop-requested";
