@@ -145,8 +145,14 @@
     let activeSettingsShortcutPopup: "inbox" | "tester-thanks" | null = null;
     let lockedMainTabs: MainTabKey[] = [];
     let unreadMainTabs: MainTabKey[] = [];
+    let fpsAnimationFrameId: number | null = null;
+    let debugUpdateIntervalId: number | null = null;
+    let fpsFrameCount = 0;
+    let fpsLastUpdateTime = 0;
+    let isDebugStatusRunning = false;
     $: EventBus.emit("debug-safe-area-changed", isSafeAreaDebugEnabled);
     $: EventBus.emit("debug-full-area-changed", isFullAreaDebugEnabled);
+    $: syncDebugStatusLoop(isFpsDebugEnabled || isMemoryDebugEnabled);
     $: activePopup = popupQueue[0] ?? null;
     $: lockedMainTabs = isRosterTabUnlocked
         ? baseLockedMainTabs
@@ -807,37 +813,90 @@
 
     };
 
+    const updateFpsFrameCount = () => {
+
+        if (!isDebugStatusRunning)
+        {
+
+            fpsAnimationFrameId = null;
+            return;
+
+        }
+
+        fpsFrameCount += 1;
+        fpsAnimationFrameId = requestAnimationFrame(updateFpsFrameCount);
+
+    };
+
+    const updateDebugStatus = () => {
+
+        const now = performance.now();
+        const elapsedSeconds = Math.max(0.001, (now - fpsLastUpdateTime) / 1000);
+        const fps = fpsFrameCount / elapsedSeconds;
+        const memory = (performance as PerformanceWithMemory).memory;
+
+        debugFpsText = `FPS: ${Math.round(fps)}`;
+        debugMemoryText = memory
+            ? `Memory: ${(memory.usedJSHeapSize / 1024 / 1024).toFixed(1)} MB / ${(memory.totalJSHeapSize / 1024 / 1024).toFixed(1)} MB`
+            : "Memory: unsupported";
+
+        fpsFrameCount = 0;
+        fpsLastUpdateTime = now;
+
+    };
+
+    const stopDebugStatus = () => {
+
+        isDebugStatusRunning = false;
+        fpsFrameCount = 0;
+        fpsLastUpdateTime = 0;
+
+        if (fpsAnimationFrameId !== null)
+        {
+
+            cancelAnimationFrame(fpsAnimationFrameId);
+            fpsAnimationFrameId = null;
+
+        }
+
+        if (debugUpdateIntervalId !== null)
+        {
+
+            clearInterval(debugUpdateIntervalId);
+            debugUpdateIntervalId = null;
+
+        }
+
+    };
+
+    const syncDebugStatusLoop = (shouldRunDebugStatus: boolean) => {
+
+        if (!shouldRunDebugStatus)
+        {
+
+            stopDebugStatus();
+            return;
+
+        }
+
+        if (isDebugStatusRunning)
+        {
+
+            return;
+
+        }
+
+        isDebugStatusRunning = true;
+        fpsFrameCount = 0;
+        fpsLastUpdateTime = performance.now();
+        fpsAnimationFrameId = requestAnimationFrame(updateFpsFrameCount);
+        debugUpdateIntervalId = window.setInterval(updateDebugStatus, 500);
+
+    };
+
     onMount(() => {
 
         let animationFrameId: number | null = null;
-        let fpsAnimationFrameId: number | null = null;
-        let debugUpdateIntervalId: number | null = null;
-        let fpsFrameCount = 0;
-        let fpsLastUpdateTime = performance.now();
-
-        const updateFpsFrameCount = () => {
-
-            fpsFrameCount += 1;
-            fpsAnimationFrameId = requestAnimationFrame(updateFpsFrameCount);
-
-        };
-
-        const updateDebugStatus = () => {
-
-            const now = performance.now();
-            const elapsedSeconds = Math.max(0.001, (now - fpsLastUpdateTime) / 1000);
-            const fps = fpsFrameCount / elapsedSeconds;
-            const memory = (performance as PerformanceWithMemory).memory;
-
-            debugFpsText = `FPS: ${Math.round(fps)}`;
-            debugMemoryText = memory
-                ? `Memory: ${(memory.usedJSHeapSize / 1024 / 1024).toFixed(1)} MB / ${(memory.totalJSHeapSize / 1024 / 1024).toFixed(1)} MB`
-                : "Memory: unsupported";
-
-            fpsFrameCount = 0;
-            fpsLastUpdateTime = now;
-
-        };
 
         const scheduleGameFrameUpdate = () => {
 
@@ -872,8 +931,6 @@
 
         resizeObserver.observe(appElement);
 
-        fpsAnimationFrameId = requestAnimationFrame(updateFpsFrameCount);
-        debugUpdateIntervalId = window.setInterval(updateDebugStatus, 500);
         EventBus.on("phaser-loading-progress", handlePhaserLoadingProgress);
         EventBus.on("phaser-loading-complete", handlePhaserLoadingComplete);
         EventBus.on("farm-plant-slot-requested", openFarmBeanSelectPanel);
@@ -921,6 +978,7 @@
             }
 
             cancelLoadingProgressTween();
+            stopDebugStatus();
 
             window.removeEventListener("resize", scheduleGameFrameUpdate);
             window.visualViewport?.removeEventListener("resize", scheduleGameFrameUpdate);

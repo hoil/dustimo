@@ -3,10 +3,7 @@ import { BattleScene } from "./scenes/BattleScene";
 import { FarmScene } from "./scenes/FarmScene";
 import { IntroLoadingScene } from "./scenes/IntroLoadingScene";
 import { RosterScene } from "./scenes/RosterScene";
-import {
-    PlazaScene,
-    ShopScene,
-} from "./scenes/SolidColorScene";
+import { PlazaScene, ShopScene } from "./scenes/SolidColorScene";
 import { AUTO, Game, Scale } from "phaser";
 
 // Find out more information about the Game Config at:
@@ -17,6 +14,10 @@ const config: Phaser.Types.Core.GameConfig = {
     height: 1920,
     parent: "game-container",
     backgroundColor: "#3232ff",
+    fps: {
+        target: 30,
+        forceSetTimeOut: true,
+    },
     scale: {
         mode: Scale.FIT,
         autoCenter: Scale.CENTER_BOTH,
