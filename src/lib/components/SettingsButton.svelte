@@ -5,6 +5,7 @@
     export let onTogglePanel: () => void;
     export let onOpenInbox: () => void;
     export let onOpenTesterThanks: () => void;
+    export let hasUnreadInbox = false;
 
 </script>
 
@@ -16,6 +17,9 @@
     <div class:settings-shortcut-panel-collapsed={!isPanelExpanded} class="settings-shortcut-panel">
         <button class="settings-shortcut-button" type="button" aria-label="인박스 열기" onclick={onOpenInbox}>
             <img class="settings-icon settings-shortcut-icon" src="/assets/icons/inbox.png" alt="" aria-hidden="true" />
+            {#if hasUnreadInbox}
+                <span class="settings-inbox-red-dot" aria-hidden="true"></span>
+            {/if}
         </button>
         <button class="settings-shortcut-button" type="button" aria-label="게임테스터 감사의인사문 팝업 열기" onclick={onOpenTesterThanks}>
             <img class="settings-icon settings-shortcut-icon" src="/assets/icons/cone.png" alt="" aria-hidden="true" />
@@ -124,6 +128,7 @@
     }
 
     .settings-shortcut-button {
+        position: relative;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -171,5 +176,19 @@
 
     .settings-shortcut-button + .settings-shortcut-button {
         margin-top: 14px;
+    }
+
+    .settings-inbox-red-dot {
+        position: absolute;
+        right: 8px;
+        top: 8px;
+        box-sizing: border-box;
+        width: 28px;
+        height: 28px;
+        border: 5px solid #fff4d6;
+        border-radius: 50%;
+        background: #ff2d2d;
+        box-shadow: 0 5px 8px rgba(0, 0, 0, 0.3);
+        pointer-events: none;
     }
 </style>

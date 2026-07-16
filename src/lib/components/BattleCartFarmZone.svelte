@@ -3,32 +3,46 @@
     import { onMount } from "svelte";
     import { EventBus } from "../../game/EventBus";
     import { BATTLE_AREA_BOTTOM_Y } from "../battleLayout";
-    import { BATTLE_CART_ITEM_DROP_REQUESTED_EVENT } from "../battleCartRewards";
+    import {
+        BATTLE_CART_VISIBLE_STACK_UNIT,
+        BATTLE_CART_ITEM_DROP_REQUESTED_EVENT,
+        BATTLE_CART_ITEMS_SYNC_REQUESTED_EVENT,
+        MAX_BATTLE_CART_ITEM_COUNT,
+        createBattleCartItem,
+        getBattleCartItemDefinition,
+        type BattleCartItem
+    } from "../battleCartRewards";
+    import {
+        addBattleCartItem,
+        getBattleCartItems,
+        removeBattleCartItemsByIds
+    } from "../gameStorage";
+    import BattleCartClaimPopup from "./BattleCartClaimPopup.svelte";
 
     type CartItemVariant = {
         color: string;
         borderColor: string;
+        name: string;
     };
 
     type FallingCartItem = CartItemVariant & {
-        id: number;
+        id: string;
         startX: number;
         landX: number;
         landY: number;
         spillX: number;
         durationMs: number;
-        isOverflow: boolean;
+        shouldStackOnComplete: boolean;
     };
 
     type StackedCartItem = CartItemVariant & {
-        id: number;
+        id: string;
         x: number;
         y: number;
         rotation: number;
         zIndex: number;
     };
 
-    const MAX_CART_ITEM_COUNT = 10;
     const CART_ITEM_SIZE = 138;
     const CART_ITEM_DROP_DURATION_MS = 1050;
     const CART_ITEM_LAND_Y = -32;
@@ -38,13 +52,6 @@
         { key: "armor", label: "갑옷", placeholder: "甲" },
         { key: "weapon", label: "무기", placeholder: "劍" }
     ] as const;
-    const CART_ITEM_VARIANTS: CartItemVariant[] = [
-        { color: "#ffd45f", borderColor: "#9f6424" },
-        { color: "#8ee86d", borderColor: "#2e7e31" },
-        { color: "#76c8ff", borderColor: "#2d6b9f" },
-        { color: "#ff8aa8", borderColor: "#9b3c5b" },
-        { color: "#cba2ff", borderColor: "#65439c" }
-    ];
     const STACK_SLOTS = [
         { x: -150, y: 126, rotation: -13, zIndex: 40 },
         { x: -50, y: 136, rotation: 8, zIndex: 40 },
@@ -58,9 +65,9 @@
         { x: 0, y: -102, rotation: 4, zIndex: 10 }
     ] as const;
 
-    let nextCartItemId = 1;
     let fallingCartItems: FallingCartItem[] = [];
     let stackedCartItems: StackedCartItem[] = [];
+    let cartClaimSnapshotItems: BattleCartItem[] | null = null;
     let isCartRumbling = false;
     let cartRumbleFrameId: number | null = null;
     let cartRumbleTimeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -73,15 +80,36 @@
 
     };
 
-    const getRandomVariant = () => {
+    const getCartItemVariant = (item: BattleCartItem): CartItemVariant => {
 
-        return CART_ITEM_VARIANTS[Math.floor(Math.random() * CART_ITEM_VARIANTS.length)];
+        const definition = getBattleCartItemDefinition(item.kind);
+
+        return {
+            color: definition.color,
+            borderColor: definition.borderColor,
+            name: definition.name
+        };
 
     };
 
-    const removeFallingCartItem = (itemId: number) => {
+    const removeFallingCartItem = (itemId: string) => {
 
         fallingCartItems = fallingCartItems.filter((item) => item.id !== itemId);
+
+    };
+
+    const getVisibleStackSlotItems = (items: readonly BattleCartItem[]) => {
+
+        return items.filter((_, index) => (index + 1) % BATTLE_CART_VISIBLE_STACK_UNIT === 0);
+
+    };
+
+    const isVisibleStackSlotItem = (itemId: string) => {
+
+        const savedItems = getBattleCartItems();
+        const itemIndex = savedItems.findIndex((item) => item.id === itemId);
+
+        return itemIndex >= 0 && (itemIndex + 1) % BATTLE_CART_VISIBLE_STACK_UNIT === 0;
 
     };
 
@@ -102,6 +130,7 @@
                 id: item.id,
                 color: item.color,
                 borderColor: item.borderColor,
+                name: item.name,
                 x: slot.x,
                 y: slot.y,
                 rotation: slot.rotation,
@@ -111,7 +140,7 @@
 
         stackedCartItems = nextStackedCartItems;
 
-        if (nextStackedCartItems.length >= MAX_CART_ITEM_COUNT)
+        if (getBattleCartItems().length >= MAX_BATTLE_CART_ITEM_COUNT)
         {
 
             startCartFullRumbleInterval();
@@ -127,7 +156,7 @@
             cleanupTimeoutIds.delete(timeoutId);
             removeFallingCartItem(item.id);
 
-            if (!item.isOverflow)
+            if (item.shouldStackOnComplete && isVisibleStackSlotItem(item.id))
             {
 
                 addStackedCartItem(item);
@@ -209,42 +238,110 @@
 
     const dropRandomCartItem = () => {
 
-        const activeContainedItemCount = stackedCartItems.length
-            + fallingCartItems.filter((item) => !item.isOverflow).length;
-        if (activeContainedItemCount >= MAX_CART_ITEM_COUNT)
-        {
+        const savedItem = createBattleCartItem();
+        const currentCartItems = getBattleCartItems();
+        const nextCartItems = addBattleCartItem(savedItem);
+        const isSaved = nextCartItems.length > currentCartItems.length;
+        const shouldStackOnComplete = isSaved
+            && nextCartItems.length % BATTLE_CART_VISIBLE_STACK_UNIT === 0;
 
-            return;
-
-        }
-
-        const isOverflow = false;
-        const variant = getRandomVariant();
+        const variant = getCartItemVariant(savedItem);
         const landX = getRandomNumber(-36, 36);
         const item = {
-            id: nextCartItemId,
+            id: savedItem.id,
             ...variant,
             startX: getRandomNumber(-300, 300),
             landX,
             landY: CART_ITEM_LAND_Y + getRandomNumber(-14, 16),
             spillX: getRandomNumber(460, 620),
             durationMs: CART_ITEM_DROP_DURATION_MS,
-            isOverflow
+            shouldStackOnComplete
         } satisfies FallingCartItem;
 
-        nextCartItemId += 1;
         fallingCartItems = [...fallingCartItems, item];
         scheduleDropCompletion(item);
+
+        if (!isSaved)
+        {
+
+            syncStackedCartItemsFromStorage();
+
+        }
+
+    };
+
+    const syncStackedCartItemsFromStorage = () => {
+
+        const savedItems = getBattleCartItems();
+        const visibleStackSlotItems = getVisibleStackSlotItems(savedItems);
+
+        stackedCartItems = visibleStackSlotItems.flatMap((item, index) => {
+
+            const slot = STACK_SLOTS[index];
+
+            if (!slot)
+            {
+
+                return [];
+
+            }
+
+            return [{
+                id: item.id,
+                ...getCartItemVariant(item),
+                x: slot.x,
+                y: slot.y,
+                rotation: slot.rotation,
+                zIndex: slot.zIndex
+            } satisfies StackedCartItem];
+
+        });
+
+        if (savedItems.length >= MAX_BATTLE_CART_ITEM_COUNT)
+        {
+
+            startCartFullRumbleInterval();
+            return;
+
+        }
+
+        stopCartFullRumbleInterval();
+
+    };
+
+    const openCartClaimPopup = () => {
+
+        cartClaimSnapshotItems = getBattleCartItems();
+
+    };
+
+    const closeCartClaimPopup = () => {
+
+        cartClaimSnapshotItems = null;
+
+    };
+
+    const claimCartSnapshotItems = () => {
+
+        const snapshotItems = cartClaimSnapshotItems ?? [];
+        const snapshotItemIds = new Set(snapshotItems.map((item) => item.id));
+
+        removeBattleCartItemsByIds(snapshotItemIds);
+        closeCartClaimPopup();
+        syncStackedCartItemsFromStorage();
 
     };
 
     onMount(() => {
 
+        syncStackedCartItemsFromStorage();
         EventBus.on(BATTLE_CART_ITEM_DROP_REQUESTED_EVENT, dropRandomCartItem);
+        EventBus.on(BATTLE_CART_ITEMS_SYNC_REQUESTED_EVENT, syncStackedCartItemsFromStorage);
 
         return () => {
 
             EventBus.off(BATTLE_CART_ITEM_DROP_REQUESTED_EVENT, dropRandomCartItem);
+            EventBus.off(BATTLE_CART_ITEMS_SYNC_REQUESTED_EVENT, syncStackedCartItemsFromStorage);
             cleanupTimeoutIds.forEach((timeoutId) => clearTimeout(timeoutId));
             cleanupTimeoutIds.clear();
             stopCartFullRumbleInterval();
@@ -263,7 +360,12 @@
 >
     <div class="cart-farm-zone-background" aria-hidden="true"></div>
     <div class="cart-farm-zone-layout">
-        <div class="cart-stage" aria-hidden="true">
+        <button
+            class="cart-stage"
+            type="button"
+            aria-label="수레영역 아이템 수령 팝업 열기"
+            onclick={openCartClaimPopup}
+        >
             <div class="cart-drop-layer">
                 {#each fallingCartItems as item (item.id)}
                     <div
@@ -284,11 +386,11 @@
                     {/each}
                 </div>
             </div>
-        </div>
+        </button>
 
-        <div class="bean-squad-grid" aria-label="내 콩 스쿼드 장비 프레임">
+        <div class="bean-squad-grid" aria-label="콩스쿼드영역 장비 프레임">
             {#each SQUAD_FRAME_IDS as frameId}
-                <article class="bean-squad-frame" aria-label={`콩 스쿼드 ${frameId}번`}>
+                <article class="bean-squad-frame" aria-label={`콩스쿼드 ${frameId}번`}>
                     <div class="bean-squad-slot bean-squad-portrait-slot" aria-label="콩 초상화">
                         <img class="bean-squad-portrait" src="/assets/beans/bean_1.png" alt="" aria-hidden="true" />
                     </div>
@@ -303,6 +405,14 @@
         </div>
     </div>
 </section>
+
+{#if cartClaimSnapshotItems}
+    <BattleCartClaimPopup
+        items={cartClaimSnapshotItems}
+        onClaim={claimCartSnapshotItems}
+        onClose={closeCartClaimPopup}
+    />
+{/if}
 
 <style>
     .cart-farm-zone {
@@ -351,9 +461,20 @@
         width: 660px;
         height: 380px;
         margin: 0 auto;
+        padding: 0;
+        border: 0;
+        background: transparent;
         transform: scale(0.666);
         transform-origin: 50% 0;
-        pointer-events: none;
+        cursor: pointer;
+        pointer-events: auto;
+        touch-action: manipulation;
+    }
+
+    .cart-stage:focus-visible {
+        outline: 9px solid rgba(255, 235, 131, 0.92);
+        outline-offset: 12px;
+        border-radius: 42px;
     }
 
     .cart-rumble-group {
@@ -482,11 +603,6 @@
         animation: cart-item-drop-in var(--drop-duration) cubic-bezier(0.18, 0.82, 0.32, 1) forwards;
     }
 
-    .cart-drop-item-overflow {
-        animation-name: cart-item-overflow-spill;
-        animation-timing-function: cubic-bezier(0.23, 0.72, 0.24, 1);
-    }
-
     .cart-item-stack {
         position: absolute;
         left: 50%;
@@ -539,36 +655,6 @@
             top: var(--land-y);
             opacity: 0;
             transform: translate(-50%, 0) rotate(720deg) scale(0.72);
-        }
-    }
-
-    @keyframes cart-item-overflow-spill {
-        0% {
-            left: calc(50% + var(--start-x));
-            top: -72px;
-            opacity: 1;
-            transform: translate(-50%, 0) rotate(0deg) scale(0.92);
-        }
-
-        42% {
-            left: calc(50% + var(--land-x));
-            top: var(--land-y);
-            opacity: 1;
-            transform: translate(-50%, 0) rotate(420deg) scale(1);
-        }
-
-        58% {
-            left: calc(50% + var(--land-x));
-            top: calc(var(--land-y) - 86px);
-            opacity: 1;
-            transform: translate(-50%, 0) rotate(570deg) scale(1.04);
-        }
-
-        100% {
-            left: calc(50% + var(--spill-x));
-            top: calc(100% + 96px);
-            opacity: 0.8;
-            transform: translate(-50%, 0) rotate(1160deg) scale(0.96);
         }
     }
 

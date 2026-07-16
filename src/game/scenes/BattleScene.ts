@@ -8,7 +8,11 @@ import {
     ALLY_ATTACK_SOUND_KEY,
     ENEMY_ATTACK_SOUND_KEY,
 } from "../preloadAssets";
-import { getSafeAreaOrigin, useSafeAreaCamera, useSafeAreaDebugOverlay } from "../SafeArea";
+import {
+    getSafeAreaOrigin,
+    useSafeAreaCamera,
+    useSafeAreaDebugOverlay,
+} from "../SafeArea";
 import {
     consumePendingBattleWaveResetEvent,
     getBattleSnapshot,
@@ -25,7 +29,10 @@ import {
     type BattleWaveResetEvent,
 } from "../../lib/battleState";
 import { BATTLE_AREA_BOTTOM_Y, battleArea } from "../../lib/battleLayout";
-import { BATTLE_CART_ITEM_DROP_REQUESTED_EVENT } from "../../lib/battleCartRewards";
+import {
+    BATTLE_CART_ITEM_DROP_REQUESTED_EVENT,
+    BATTLE_CART_ITEMS_SYNC_REQUESTED_EVENT,
+} from "../../lib/battleCartRewards";
 
 const BATTLE_BACKGROUND_DEPTH = 0;
 const BATTLE_GUIDE_DEPTH = 1;
@@ -48,7 +55,8 @@ const ENEMY_LAYOUTS = [
     { key: "enemy-4", x: 995 },
 ] as const;
 const ENEMY_LAYOUT_GAP = 125;
-const ENEMY_LAYOUT_CENTER_X = (ENEMY_LAYOUTS[0].x + ENEMY_LAYOUTS[ENEMY_LAYOUTS.length - 1].x) / 2;
+const ENEMY_LAYOUT_CENTER_X =
+    (ENEMY_LAYOUTS[0].x + ENEMY_LAYOUTS[ENEMY_LAYOUTS.length - 1].x) / 2;
 const BREATHING_TWEEN_DURATION = 900;
 const BREATHING_SCALE_X = 0.95;
 const BREATHING_SCALE_Y = 1.05;
@@ -82,9 +90,10 @@ const WAVE_FADE_OUT_END_MS = WAVE_ALLY_EXIT_END_MS + WAVE_FADE_DURATION;
 const WAVE_FADE_HOLD_END_MS = WAVE_FADE_OUT_END_MS + WAVE_FADE_HOLD_DURATION;
 const WAVE_FADE_IN_END_MS = WAVE_FADE_HOLD_END_MS + WAVE_FADE_DURATION;
 const WAVE_ALLY_ENTER_START_MS = WAVE_FADE_IN_END_MS;
-const WAVE_TRANSITION_TOTAL_DURATION_MS = WAVE_ALLY_ENTER_START_MS
-    + WAVE_ALLY_ENTER_DURATION
-    + (ALLY_LAYOUTS.length - 1) * WAVE_ALLY_ENTER_STAGGER;
+const WAVE_TRANSITION_TOTAL_DURATION_MS =
+    WAVE_ALLY_ENTER_START_MS +
+    WAVE_ALLY_ENTER_DURATION +
+    (ALLY_LAYOUTS.length - 1) * WAVE_ALLY_ENTER_STAGGER;
 
 type BattleUnit = {
     key: BattleUnitId;
@@ -98,7 +107,10 @@ type BattleUnit = {
     depth: number;
 };
 
-type BattleTweenConfig = Omit<Phaser.Types.Tweens.TweenBuilderConfig, "targets">;
+type BattleTweenConfig = Omit<
+    Phaser.Types.Tweens.TweenBuilderConfig,
+    "targets"
+>;
 type BattleTweenTarget = GameObjects.GameObject | GameObjects.GameObject[];
 
 export class BattleScene extends Scene {
@@ -116,8 +128,11 @@ export class BattleScene extends Scene {
     private isAttackAnimationPlaying = false;
     private isWaveTransitionPlaying = false;
     private isSceneActive = false;
-    private isDocumentVisible = typeof document === "undefined" || document.visibilityState === "visible";
-    private isWindowFocused = typeof document === "undefined" || document.hasFocus();
+    private isDocumentVisible =
+        typeof document === "undefined" ||
+        document.visibilityState === "visible";
+    private isWindowFocused =
+        typeof document === "undefined" || document.hasFocus();
     private lastFocusRestoredAt = 0;
     private animationVersion = 0;
 
@@ -136,8 +151,12 @@ export class BattleScene extends Scene {
         this.updateExtendedAreaLayout();
         this.isSceneActive = true;
         this.resumeBattleViewFromState();
-        this.unsubscribeBattleAttackEvents = subscribeBattleAttackEvents(this.queueBattleAttackEvent);
-        this.unsubscribeBattleWaveResetEvents = subscribeBattleWaveResetEvents(this.applyBattleWaveResetEvent);
+        this.unsubscribeBattleAttackEvents = subscribeBattleAttackEvents(
+            this.queueBattleAttackEvent
+        );
+        this.unsubscribeBattleWaveResetEvents = subscribeBattleWaveResetEvents(
+            this.applyBattleWaveResetEvent
+        );
         this.scale.on("resize", this.updateExtendedAreaLayout, this);
         this.registerAudioFocusListeners();
         this.events.once("shutdown", () => {
@@ -150,6 +169,7 @@ export class BattleScene extends Scene {
             this.unregisterAudioFocusListeners();
         });
         useSafeAreaDebugOverlay(this);
+        EventBus.emit(BATTLE_CART_ITEMS_SYNC_REQUESTED_EVENT);
         EventBus.emit("current-scene-ready", this);
     }
 
@@ -163,7 +183,8 @@ export class BattleScene extends Scene {
         });
         this.battleFadeOverlay?.setVisible(false).setAlpha(0);
         this.applyUnitStates(getBattleSnapshot().units);
-        const pendingWaveTransitionState = getPendingBattleWaveTransitionState();
+        const pendingWaveTransitionState =
+            getPendingBattleWaveTransitionState();
 
         if (pendingWaveTransitionState) {
             this.playWaveTransition(
@@ -193,11 +214,7 @@ export class BattleScene extends Scene {
         const battleCenterY = battleArea.y + battleArea.height / 2;
 
         this.battleBackground = this.add
-            .image(
-                battleCenterX,
-                battleCenterY,
-                BATTLE_BACKGROUND_TEXTURE_KEY
-            )
+            .image(battleCenterX, battleCenterY, BATTLE_BACKGROUND_TEXTURE_KEY)
             .setDepth(BATTLE_BACKGROUND_DEPTH);
 
         this.battleSeparator = this.add
@@ -250,7 +267,11 @@ export class BattleScene extends Scene {
             const hpBarBg = this.createHpBarBackground();
             const hpBarFill = this.createHpBarFill();
             const container = this.add
-                .container(layout.x, BATTLE_AREA_BOTTOM_Y, [allyBean, hpBarBg, hpBarFill])
+                .container(layout.x, BATTLE_AREA_BOTTOM_Y, [
+                    allyBean,
+                    hpBarBg,
+                    hpBarFill,
+                ])
                 .setDepth(BATTLE_CHARACTER_DEPTH + index);
 
             this.applyBreathingAnimation(allyBean, index * 130);
@@ -288,10 +309,20 @@ export class BattleScene extends Scene {
             const hpBarBg = this.createHpBarBackground();
             const hpBarFill = this.createHpBarFill();
             const container = this.add
-                .container(layout.x, BATTLE_AREA_BOTTOM_Y, [enemy, enemyHitFlash, hpBarBg, hpBarFill])
-                .setDepth(BATTLE_CHARACTER_DEPTH + this.allyUnits.length + index);
+                .container(layout.x, BATTLE_AREA_BOTTOM_Y, [
+                    enemy,
+                    enemyHitFlash,
+                    hpBarBg,
+                    hpBarFill,
+                ])
+                .setDepth(
+                    BATTLE_CHARACTER_DEPTH + this.allyUnits.length + index
+                );
 
-            this.applyBreathingAnimation([enemy, enemyHitFlash], 260 + index * 130);
+            this.applyBreathingAnimation(
+                [enemy, enemyHitFlash],
+                260 + index * 130
+            );
 
             const battleUnit: BattleUnit = {
                 key: layout.key,
@@ -313,18 +344,36 @@ export class BattleScene extends Scene {
 
     private createHpBarBackground() {
         return this.add
-            .rectangle(0, HP_BAR_Y, HP_BAR_WIDTH + 6, HP_BAR_HEIGHT + 6, HP_BAR_BG_COLOR, 0.95)
+            .rectangle(
+                0,
+                HP_BAR_Y,
+                HP_BAR_WIDTH + 6,
+                HP_BAR_HEIGHT + 6,
+                HP_BAR_BG_COLOR,
+                0.95
+            )
             .setOrigin(0.5);
     }
 
     private createHpBarFill() {
         return this.add
-            .rectangle(-HP_BAR_WIDTH / 2, HP_BAR_Y, HP_BAR_WIDTH, HP_BAR_HEIGHT, HP_BAR_FILL_COLOR, 1)
+            .rectangle(
+                -HP_BAR_WIDTH / 2,
+                HP_BAR_Y,
+                HP_BAR_WIDTH,
+                HP_BAR_HEIGHT,
+                HP_BAR_FILL_COLOR,
+                1
+            )
             .setOrigin(0, 0.5);
     }
 
     private getBattleUnit(key: BattleUnitId) {
-        return [...this.allyUnits, ...this.enemyUnits].find((unit) => unit.key === key) ?? null;
+        return (
+            [...this.allyUnits, ...this.enemyUnits].find(
+                (unit) => unit.key === key
+            ) ?? null
+        );
     }
 
     private getBattleUnits() {
@@ -348,7 +397,11 @@ export class BattleScene extends Scene {
     };
 
     private playPendingWaveTransition() {
-        if (!this.pendingWaveResetEvent || this.isAttackAnimationPlaying || this.isWaveTransitionPlaying) {
+        if (
+            !this.pendingWaveResetEvent ||
+            this.isAttackAnimationPlaying ||
+            this.isWaveTransitionPlaying
+        ) {
             return;
         }
 
@@ -357,7 +410,10 @@ export class BattleScene extends Scene {
         this.playWaveTransition(event);
     }
 
-    private async playWaveTransition(event: BattleWaveResetEvent, elapsedMs = 0) {
+    private async playWaveTransition(
+        event: BattleWaveResetEvent,
+        elapsedMs = 0
+    ) {
         if (this.isWaveTransitionPlaying) {
             this.attackEventQueue = [];
             this.pendingWaveResetEvent = event;
@@ -388,7 +444,9 @@ export class BattleScene extends Scene {
         }
 
         if (transitionElapsedMs < WAVE_ALLY_EXIT_END_MS) {
-            await this.runAlliesOffscreenRight(WAVE_ALLY_EXIT_END_MS - transitionElapsedMs);
+            await this.runAlliesOffscreenRight(
+                WAVE_ALLY_EXIT_END_MS - transitionElapsedMs
+            );
 
             if (!this.isSceneActive) {
                 return;
@@ -396,7 +454,10 @@ export class BattleScene extends Scene {
         }
 
         if (transitionElapsedMs < WAVE_FADE_OUT_END_MS) {
-            await this.fadeBattleAreaToBlack(WAVE_FADE_OUT_END_MS - Math.max(transitionElapsedMs, WAVE_ALLY_EXIT_END_MS));
+            await this.fadeBattleAreaToBlack(
+                WAVE_FADE_OUT_END_MS -
+                    Math.max(transitionElapsedMs, WAVE_ALLY_EXIT_END_MS)
+            );
 
             if (!this.isSceneActive) {
                 return;
@@ -409,7 +470,10 @@ export class BattleScene extends Scene {
         }
 
         if (transitionElapsedMs < WAVE_FADE_HOLD_END_MS) {
-            await this.wait(WAVE_FADE_HOLD_END_MS - Math.max(transitionElapsedMs, WAVE_FADE_OUT_END_MS));
+            await this.wait(
+                WAVE_FADE_HOLD_END_MS -
+                    Math.max(transitionElapsedMs, WAVE_FADE_OUT_END_MS)
+            );
 
             if (!this.isSceneActive) {
                 return;
@@ -417,14 +481,19 @@ export class BattleScene extends Scene {
         }
 
         if (transitionElapsedMs < WAVE_FADE_IN_END_MS) {
-            await this.fadeBattleAreaFromBlack(WAVE_FADE_IN_END_MS - Math.max(transitionElapsedMs, WAVE_FADE_HOLD_END_MS));
+            await this.fadeBattleAreaFromBlack(
+                WAVE_FADE_IN_END_MS -
+                    Math.max(transitionElapsedMs, WAVE_FADE_HOLD_END_MS)
+            );
 
             if (!this.isSceneActive) {
                 return;
             }
         }
 
-        await this.runAlliesToHomeFromElapsed(Math.max(transitionElapsedMs, WAVE_ALLY_ENTER_START_MS));
+        await this.runAlliesToHomeFromElapsed(
+            Math.max(transitionElapsedMs, WAVE_ALLY_ENTER_START_MS)
+        );
 
         if (!this.isSceneActive) {
             return;
@@ -453,11 +522,14 @@ export class BattleScene extends Scene {
     private runAlliesOffscreenRight(duration = WAVE_ALLY_EXIT_DURATION) {
         const exitX = this.getFrameRight() + WAVE_OFFSCREEN_PADDING;
 
-        return this.tweenBattleTarget(this.allyUnits.map((unit) => unit.container), {
-            x: exitX,
-            duration: Math.max(0, duration),
-            ease: "Sine.easeIn",
-        });
+        return this.tweenBattleTarget(
+            this.allyUnits.map((unit) => unit.container),
+            {
+                x: exitX,
+                duration: Math.max(0, duration),
+                ease: "Sine.easeIn",
+            }
+        );
     }
 
     private placeAlliesOffscreenLeft() {
@@ -475,7 +547,8 @@ export class BattleScene extends Scene {
     private runAlliesToHomeFromElapsed(elapsedMs = WAVE_ALLY_ENTER_START_MS) {
         return Promise.all(
             this.allyUnits.map((unit, index) => {
-                const unitStartMs = WAVE_ALLY_ENTER_START_MS + index * WAVE_ALLY_ENTER_STAGGER;
+                const unitStartMs =
+                    WAVE_ALLY_ENTER_START_MS + index * WAVE_ALLY_ENTER_STAGGER;
                 const unitEndMs = unitStartMs + WAVE_ALLY_ENTER_DURATION;
 
                 if (elapsedMs >= unitEndMs) {
@@ -486,7 +559,10 @@ export class BattleScene extends Scene {
 
                 return this.tweenBattleTarget(unit.container, {
                     x: unit.homeX,
-                    duration: Math.max(0, unitEndMs - Math.max(elapsedMs, unitStartMs)),
+                    duration: Math.max(
+                        0,
+                        unitEndMs - Math.max(elapsedMs, unitStartMs)
+                    ),
                     delay: Math.max(0, unitStartMs - elapsedMs),
                     ease: "Sine.easeOut",
                 });
@@ -498,31 +574,42 @@ export class BattleScene extends Scene {
         this.updateBattleFadeOverlayLayout();
         this.battleFadeOverlay?.setVisible(true);
 
-        return this.tweenBattleTarget(this.battleFadeOverlay ? [this.battleFadeOverlay] : [], {
-            alpha: 1,
-            duration: Math.max(0, duration),
-            ease: "Sine.easeInOut",
-        });
+        return this.tweenBattleTarget(
+            this.battleFadeOverlay ? [this.battleFadeOverlay] : [],
+            {
+                alpha: 1,
+                duration: Math.max(0, duration),
+                ease: "Sine.easeInOut",
+            }
+        );
     }
 
     private async fadeBattleAreaFromBlack(duration = WAVE_FADE_DURATION) {
-        await this.tweenBattleTarget(this.battleFadeOverlay ? [this.battleFadeOverlay] : [], {
-            alpha: 0,
-            duration: Math.max(0, duration),
-            ease: "Sine.easeInOut",
-        });
+        await this.tweenBattleTarget(
+            this.battleFadeOverlay ? [this.battleFadeOverlay] : [],
+            {
+                alpha: 0,
+                duration: Math.max(0, duration),
+                ease: "Sine.easeInOut",
+            }
+        );
 
         this.battleFadeOverlay?.setVisible(false);
     }
 
-    private applyWaveTransitionState(event: BattleWaveResetEvent, elapsedMs: number) {
+    private applyWaveTransitionState(
+        event: BattleWaveResetEvent,
+        elapsedMs: number
+    ) {
         const exitX = this.getFrameRight() + WAVE_OFFSCREEN_PADDING;
         const enterX = this.getFrameLeft() - WAVE_OFFSCREEN_PADDING;
 
         this.updateBattleFadeOverlayLayout();
 
         if (elapsedMs < WAVE_ALLY_EXIT_END_MS) {
-            const exitProgress = this.easeSineIn(elapsedMs / WAVE_ALLY_EXIT_DURATION);
+            const exitProgress = this.easeSineIn(
+                elapsedMs / WAVE_ALLY_EXIT_DURATION
+            );
 
             this.enemyUnits.forEach((unit) => {
                 unit.container
@@ -543,7 +630,9 @@ export class BattleScene extends Scene {
         }
 
         if (elapsedMs < WAVE_FADE_OUT_END_MS) {
-            const fadeProgress = this.easeSineInOut((elapsedMs - WAVE_ALLY_EXIT_END_MS) / WAVE_FADE_DURATION);
+            const fadeProgress = this.easeSineInOut(
+                (elapsedMs - WAVE_ALLY_EXIT_END_MS) / WAVE_FADE_DURATION
+            );
 
             this.enemyUnits.forEach((unit) => {
                 unit.container
@@ -579,7 +668,9 @@ export class BattleScene extends Scene {
         }
 
         if (elapsedMs < WAVE_FADE_IN_END_MS) {
-            const fadeProgress = this.easeSineInOut((elapsedMs - WAVE_FADE_HOLD_END_MS) / WAVE_FADE_DURATION);
+            const fadeProgress = this.easeSineInOut(
+                (elapsedMs - WAVE_FADE_HOLD_END_MS) / WAVE_FADE_DURATION
+            );
 
             this.battleFadeOverlay?.setAlpha(1 - fadeProgress).setVisible(true);
 
@@ -588,8 +679,11 @@ export class BattleScene extends Scene {
 
         this.battleFadeOverlay?.setAlpha(0).setVisible(false);
         this.allyUnits.forEach((unit, index) => {
-            const unitStartMs = WAVE_ALLY_ENTER_START_MS + index * WAVE_ALLY_ENTER_STAGGER;
-            const unitProgress = this.easeSineOut((elapsedMs - unitStartMs) / WAVE_ALLY_ENTER_DURATION);
+            const unitStartMs =
+                WAVE_ALLY_ENTER_START_MS + index * WAVE_ALLY_ENTER_STAGGER;
+            const unitProgress = this.easeSineOut(
+                (elapsedMs - unitStartMs) / WAVE_ALLY_ENTER_DURATION
+            );
 
             unit.container
                 .setX(this.lerp(enterX, unit.homeX, unitProgress))
@@ -600,7 +694,10 @@ export class BattleScene extends Scene {
     }
 
     private clampWaveTransitionElapsed(elapsedMs: number) {
-        return Math.min(WAVE_TRANSITION_TOTAL_DURATION_MS, Math.max(0, elapsedMs));
+        return Math.min(
+            WAVE_TRANSITION_TOTAL_DURATION_MS,
+            Math.max(0, elapsedMs)
+        );
     }
 
     private lerp(start: number, end: number, progress: number) {
@@ -643,7 +740,9 @@ export class BattleScene extends Scene {
         const visibleEnemyStates = unitStates
             .filter((unitState) => unitState.team === "enemy")
             .sort((a, b) => a.slotIndex - b.slotIndex);
-        const startX = ENEMY_LAYOUT_CENTER_X - ENEMY_LAYOUT_GAP * (visibleEnemyStates.length - 1) / 2;
+        const startX =
+            ENEMY_LAYOUT_CENTER_X -
+            (ENEMY_LAYOUT_GAP * (visibleEnemyStates.length - 1)) / 2;
 
         visibleEnemyStates.forEach((unitState, index) => {
             const enemyUnit = this.getBattleUnit(unitState.id);
@@ -681,16 +780,20 @@ export class BattleScene extends Scene {
     }
 
     private updateHpBar(unit: BattleUnit, hp: number, maxHp: number) {
-        const hpRatio = maxHp > 0
-            ? Math.min(1, Math.max(0, hp / maxHp))
-            : 0;
+        const hpRatio = maxHp > 0 ? Math.min(1, Math.max(0, hp / maxHp)) : 0;
 
         unit.hpBarFill
             .setSize(Math.max(1, HP_BAR_WIDTH * hpRatio), HP_BAR_HEIGHT)
-            .setFillStyle(hpRatio <= 0.3 ? HP_BAR_DANGER_COLOR : HP_BAR_FILL_COLOR, 1);
+            .setFillStyle(
+                hpRatio <= 0.3 ? HP_BAR_DANGER_COLOR : HP_BAR_FILL_COLOR,
+                1
+            );
     }
 
-    private applyBreathingAnimation(target: GameObjects.Image | GameObjects.Image[], delay = 0) {
+    private applyBreathingAnimation(
+        target: GameObjects.Image | GameObjects.Image[],
+        delay = 0
+    ) {
         const targets = Array.isArray(target) ? target : [target];
 
         targets.forEach((singleTarget) => {
@@ -759,9 +862,10 @@ export class BattleScene extends Scene {
             return;
         }
 
-        const soundKey = attackerTeam === "ally"
-            ? ALLY_ATTACK_SOUND_KEY
-            : ENEMY_ATTACK_SOUND_KEY;
+        const soundKey =
+            attackerTeam === "ally"
+                ? ALLY_ATTACK_SOUND_KEY
+                : ENEMY_ATTACK_SOUND_KEY;
 
         try {
             this.sound.play(soundKey);
@@ -777,7 +881,10 @@ export class BattleScene extends Scene {
             return false;
         }
 
-        if (now - this.lastFocusRestoredAt < ATTACK_SOUND_FOCUS_RESTORE_GRACE_MS) {
+        if (
+            now - this.lastFocusRestoredAt <
+            ATTACK_SOUND_FOCUS_RESTORE_GRACE_MS
+        ) {
             return false;
         }
 
@@ -788,7 +895,10 @@ export class BattleScene extends Scene {
         this.updateAudioFocusState();
 
         if (typeof document !== "undefined") {
-            document.addEventListener("visibilitychange", this.handleDocumentVisibilityChange);
+            document.addEventListener(
+                "visibilitychange",
+                this.handleDocumentVisibilityChange
+            );
         }
 
         if (typeof window !== "undefined") {
@@ -799,7 +909,10 @@ export class BattleScene extends Scene {
 
     private unregisterAudioFocusListeners() {
         if (typeof document !== "undefined") {
-            document.removeEventListener("visibilitychange", this.handleDocumentVisibilityChange);
+            document.removeEventListener(
+                "visibilitychange",
+                this.handleDocumentVisibilityChange
+            );
         }
 
         if (typeof window !== "undefined") {
@@ -811,8 +924,11 @@ export class BattleScene extends Scene {
     private updateAudioFocusState() {
         const wasAudible = this.isDocumentVisible && this.isWindowFocused;
 
-        this.isDocumentVisible = typeof document === "undefined" || document.visibilityState === "visible";
-        this.isWindowFocused = typeof document === "undefined" || document.hasFocus();
+        this.isDocumentVisible =
+            typeof document === "undefined" ||
+            document.visibilityState === "visible";
+        this.isWindowFocused =
+            typeof document === "undefined" || document.hasFocus();
 
         if (!wasAudible && this.isDocumentVisible && this.isWindowFocused) {
             this.lastFocusRestoredAt = performance.now();
@@ -831,11 +947,16 @@ export class BattleScene extends Scene {
         this.updateAudioFocusState();
     };
 
-    private async performMeleeAttack(attacker: BattleUnit, target: BattleUnit, event: BattleAttackEvent) {
+    private async performMeleeAttack(
+        attacker: BattleUnit,
+        target: BattleUnit,
+        event: BattleAttackEvent
+    ) {
         const animationVersion = this.animationVersion;
-        const attackX = attacker.team === "ally"
-            ? target.homeX - MELEE_ATTACK_GAP
-            : target.homeX + MELEE_ATTACK_GAP;
+        const attackX =
+            attacker.team === "ally"
+                ? target.homeX - MELEE_ATTACK_GAP
+                : target.homeX + MELEE_ATTACK_GAP;
 
         attacker.container.setDepth(BATTLE_ATTACKER_DEPTH);
 
@@ -874,9 +995,7 @@ export class BattleScene extends Scene {
     }
 
     private playHitEffect(target: BattleUnit, event: BattleAttackEvent) {
-        const hitTint = target.team === "ally"
-            ? ALLY_HIT_TINT
-            : ENEMY_HIT_TINT;
+        const hitTint = target.team === "ally" ? ALLY_HIT_TINT : ENEMY_HIT_TINT;
 
         if (target.team === "enemy") {
             this.playEnemyHitFlash(target);
@@ -890,13 +1009,18 @@ export class BattleScene extends Scene {
         this.playHitShake(target);
 
         const hitText = this.add
-            .text(target.container.x, target.container.y - target.sprite.displayHeight * 0.72, `${event.damage}`, {
-                color: "#fff0a8",
-                fontFamily: "MabinogiClassic, sans-serif",
-                fontSize: "44px",
-                stroke: "#5a1b14",
-                strokeThickness: 8,
-            })
+            .text(
+                target.container.x,
+                target.container.y - target.sprite.displayHeight * 0.72,
+                `${event.damage}`,
+                {
+                    color: "#fff0a8",
+                    fontFamily: "MabinogiClassic, sans-serif",
+                    fontSize: "44px",
+                    stroke: "#5a1b14",
+                    strokeThickness: 8,
+                }
+            )
             .setOrigin(0.5)
             .setDepth(BATTLE_ATTACKER_DEPTH + 1);
 
@@ -918,9 +1042,7 @@ export class BattleScene extends Scene {
 
     private playEnemyHitFlash(target: BattleUnit) {
         if (!target.hitFlash) {
-            target.sprite
-                .setTint(ENEMY_HIT_TINT)
-                .setTintMode(TintModes.FILL);
+            target.sprite.setTint(ENEMY_HIT_TINT).setTintMode(TintModes.FILL);
             this.time.delayedCall(90, () => {
                 target.sprite.clearTint();
             });
@@ -947,9 +1069,8 @@ export class BattleScene extends Scene {
 
     private playHitShake(target: BattleUnit) {
         const baseX = target.container.x;
-        const hitOffset = target.team === "ally"
-            ? -HIT_SHAKE_DISTANCE
-            : HIT_SHAKE_DISTANCE;
+        const hitOffset =
+            target.team === "ally" ? -HIT_SHAKE_DISTANCE : HIT_SHAKE_DISTANCE;
 
         this.tweens.add({
             targets: target.container,
@@ -1025,10 +1146,13 @@ export class BattleScene extends Scene {
                 frameWidth / this.battleBackground.width,
                 battleHeight / this.battleBackground.height
             );
-            const backgroundDisplayHeight = this.battleBackground.height * backgroundScale;
-            const backgroundY = BATTLE_AREA_BOTTOM_Y - backgroundDisplayHeight / 2;
+            const backgroundDisplayHeight =
+                this.battleBackground.height * backgroundScale;
+            const backgroundY =
+                BATTLE_AREA_BOTTOM_Y - backgroundDisplayHeight / 2;
             const backgroundTop = backgroundY - backgroundDisplayHeight / 2;
-            const groundWorldY = backgroundTop + BATTLE_BACKGROUND_GROUND_Y * backgroundScale;
+            const groundWorldY =
+                backgroundTop + BATTLE_BACKGROUND_GROUND_Y * backgroundScale;
 
             this.battleBackground
                 .setScale(backgroundScale)
@@ -1042,7 +1166,10 @@ export class BattleScene extends Scene {
             .setSize(frameWidth, 8);
 
         this.cartFarmBackdrop
-            ?.setPosition(frameCenterX, BATTLE_AREA_BOTTOM_Y + cartFarmHeight / 2)
+            ?.setPosition(
+                frameCenterX,
+                BATTLE_AREA_BOTTOM_Y + cartFarmHeight / 2
+            )
             .setSize(frameWidth, cartFarmHeight);
 
         this.updateBattleFadeOverlayLayout();
@@ -1062,7 +1189,10 @@ export class BattleScene extends Scene {
         const battleHeight = Math.max(1, BATTLE_AREA_BOTTOM_Y - frameTop);
 
         this.battleFadeOverlay
-            ?.setPosition(frameLeft + frameWidth / 2, frameTop + battleHeight / 2)
+            ?.setPosition(
+                frameLeft + frameWidth / 2,
+                frameTop + battleHeight / 2
+            )
             .setSize(frameWidth, battleHeight);
     }
 

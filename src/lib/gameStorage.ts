@@ -7,6 +7,17 @@ import {
     type PlantedFarmBean,
     type PlantedFarmSeed,
 } from "./beans";
+import {
+    BATTLE_CART_ITEM_DEFINITIONS,
+    MAX_BATTLE_CART_ITEM_COUNT,
+    type BattleCartItem,
+    type BattleCartItemKind,
+} from "./battleCartRewards";
+import {
+    INITIAL_INBOX_MAIL_DEFINITIONS,
+    mergeInboxMailStatesWithInitialMails,
+    type InboxMailState,
+} from "./inbox";
 
 const GAME_STORAGE_PREFIX = "beantoking:";
 const GAME_UID_STORAGE_KEY = `${GAME_STORAGE_PREFIX}uid`;
@@ -16,6 +27,20 @@ const GAME_PLANTED_FARM_BEANS_STORAGE_KEY = `${GAME_STORAGE_PREFIX}planted-farm-
 const GAME_PLANTED_FARM_SEEDS_STORAGE_KEY = `${GAME_STORAGE_PREFIX}planted-farm-seeds`;
 const GAME_ROSTER_TAB_UNLOCKED_STORAGE_KEY = `${GAME_STORAGE_PREFIX}roster-tab-unlocked`;
 const GAME_ROSTER_TAB_UNREAD_STORAGE_KEY = `${GAME_STORAGE_PREFIX}roster-tab-unread`;
+const GAME_BATTLE_CART_ITEMS_STORAGE_KEY = `${GAME_STORAGE_PREFIX}battle-cart-items`;
+const GAME_INBOX_MAIL_STATES_STORAGE_KEY = `${GAME_STORAGE_PREFIX}inbox-mail-states`;
+const battleCartItemKinds = new Set<BattleCartItemKind>(
+    BATTLE_CART_ITEM_DEFINITIONS.map((definition) => definition.kind)
+);
+const inboxMailIds = new Set(
+    INITIAL_INBOX_MAIL_DEFINITIONS.map((mail) => mail.id)
+);
+const inboxAttachmentIdsByMailId = new Map(
+    INITIAL_INBOX_MAIL_DEFINITIONS.map((mail) => [
+        mail.id,
+        new Set(mail.attachments.map((attachment) => attachment.id)),
+    ])
+);
 
 const cloneBeanDefinition = (bean: BeanDefinition): BeanDefinition => ({
     ...bean,
@@ -32,10 +57,7 @@ const addMissingInitialOwnedBeans = (beans: readonly BeanDefinition[]) => {
         .filter((bean) => !savedBeanIds.has(bean.id))
         .map(cloneBeanDefinition);
 
-    return [
-        ...missingInitialBeans,
-        ...beans.map(cloneBeanDefinition),
-    ];
+    return [...missingInitialBeans, ...beans.map(cloneBeanDefinition)];
 };
 
 const createInitialOwnedSeeds = (): OwnedSeed[] => {
@@ -201,6 +223,93 @@ const parsePlantedFarmSeeds = (rawValue: string | null) => {
     }
 };
 
+const isBattleCartItem = (value: unknown): value is BattleCartItem => {
+    if (!value || typeof value !== "object") {
+        return false;
+    }
+
+    const item = value as Record<string, unknown>;
+
+    return (
+        typeof item.id === "string" &&
+        typeof item.kind === "string" &&
+        battleCartItemKinds.has(item.kind as BattleCartItemKind)
+    );
+};
+
+const parseBattleCartItems = (rawValue: string | null) => {
+    if (!rawValue) {
+        return [];
+    }
+
+    try {
+        const parsedValue: unknown = JSON.parse(rawValue);
+
+        if (
+            !Array.isArray(parsedValue) ||
+            parsedValue.some((item) => !isBattleCartItem(item))
+        ) {
+            return [];
+        }
+
+        return parsedValue.slice(0, MAX_BATTLE_CART_ITEM_COUNT);
+    } catch {
+        return [];
+    }
+};
+
+const isInboxMailState = (value: unknown): value is InboxMailState => {
+    if (!value || typeof value !== "object") {
+        return false;
+    }
+
+    const state = value as Record<string, unknown>;
+
+    return (
+        typeof state.id === "string" &&
+        inboxMailIds.has(state.id) &&
+        typeof state.isRead === "boolean" &&
+        Array.isArray(state.claimedAttachmentIds) &&
+        state.claimedAttachmentIds.every(
+            (attachmentId) => typeof attachmentId === "string"
+        )
+    );
+};
+
+const normalizeInboxMailState = (state: InboxMailState): InboxMailState => {
+    const validAttachmentIds =
+        inboxAttachmentIdsByMailId.get(state.id) ?? new Set<string>();
+
+    return {
+        id: state.id,
+        isRead: state.isRead,
+        claimedAttachmentIds: Array.from(
+            new Set(state.claimedAttachmentIds)
+        ).filter((attachmentId) => validAttachmentIds.has(attachmentId)),
+    };
+};
+
+const parseInboxMailStates = (rawValue: string | null) => {
+    if (!rawValue) {
+        return null;
+    }
+
+    try {
+        const parsedValue: unknown = JSON.parse(rawValue);
+
+        if (
+            !Array.isArray(parsedValue) ||
+            parsedValue.some((state) => !isInboxMailState(state))
+        ) {
+            return null;
+        }
+
+        return parsedValue.map(normalizeInboxMailState);
+    } catch {
+        return null;
+    }
+};
+
 const createRandomHex = (byteLength: number) => {
     const bytes = new Uint8Array(byteLength);
 
@@ -346,6 +455,136 @@ export const getPlantedFarmSeeds = () => {
     return parsePlantedFarmSeeds(
         localStorage.getItem(GAME_PLANTED_FARM_SEEDS_STORAGE_KEY)
     );
+};
+
+export const saveBattleCartItems = (items: readonly BattleCartItem[]) => {
+    if (typeof localStorage === "undefined") {
+        return;
+    }
+
+    localStorage.setItem(
+        GAME_BATTLE_CART_ITEMS_STORAGE_KEY,
+        JSON.stringify(items.slice(0, MAX_BATTLE_CART_ITEM_COUNT))
+    );
+};
+
+export const getBattleCartItems = () => {
+    if (typeof localStorage === "undefined") {
+        return [];
+    }
+
+    return parseBattleCartItems(
+        localStorage.getItem(GAME_BATTLE_CART_ITEMS_STORAGE_KEY)
+    );
+};
+
+export const addBattleCartItem = (item: BattleCartItem) => {
+    const currentItems = getBattleCartItems();
+
+    if (currentItems.length >= MAX_BATTLE_CART_ITEM_COUNT) {
+        return currentItems;
+    }
+
+    const nextItems = [...currentItems, item].slice(
+        0,
+        MAX_BATTLE_CART_ITEM_COUNT
+    );
+
+    saveBattleCartItems(nextItems);
+
+    return nextItems;
+};
+
+export const removeBattleCartItemsByIds = (itemIds: ReadonlySet<string>) => {
+    const currentItems = getBattleCartItems();
+
+    if (itemIds.size === 0) {
+        return currentItems;
+    }
+
+    const nextItems = currentItems.filter((item) => !itemIds.has(item.id));
+
+    if (nextItems.length !== currentItems.length) {
+        saveBattleCartItems(nextItems);
+    }
+
+    return nextItems;
+};
+
+export const saveInboxMailStates = (states: readonly InboxMailState[]) => {
+    if (typeof localStorage === "undefined") {
+        return;
+    }
+
+    localStorage.setItem(
+        GAME_INBOX_MAIL_STATES_STORAGE_KEY,
+        JSON.stringify(mergeInboxMailStatesWithInitialMails(states))
+    );
+};
+
+export const getOrCreateInboxMailStates = () => {
+    if (typeof localStorage === "undefined") {
+        return mergeInboxMailStatesWithInitialMails([]);
+    }
+
+    const savedStates = parseInboxMailStates(
+        localStorage.getItem(GAME_INBOX_MAIL_STATES_STORAGE_KEY)
+    );
+    const states = mergeInboxMailStatesWithInitialMails(savedStates ?? []);
+
+    if (!savedStates || savedStates.length !== states.length) {
+        saveInboxMailStates(states);
+    }
+
+    return states;
+};
+
+export const markInboxMailRead = (mailId: string) => {
+    const currentStates = getOrCreateInboxMailStates();
+    const nextStates = currentStates.map((state) =>
+        state.id === mailId
+            ? {
+                  ...state,
+                  isRead: true,
+              }
+            : state
+    );
+
+    saveInboxMailStates(nextStates);
+
+    return nextStates;
+};
+
+export const claimInboxMailAttachments = (
+    mailId: string,
+    attachmentIds: readonly string[]
+) => {
+    const validAttachmentIds =
+        inboxAttachmentIdsByMailId.get(mailId) ?? new Set<string>();
+    const claimableAttachmentIds = attachmentIds.filter((attachmentId) =>
+        validAttachmentIds.has(attachmentId)
+    );
+    const currentStates = getOrCreateInboxMailStates();
+    const nextStates = currentStates.map((state) => {
+        if (state.id !== mailId) {
+            return state;
+        }
+
+        return {
+            ...state,
+            isRead: true,
+            claimedAttachmentIds: Array.from(
+                new Set([
+                    ...state.claimedAttachmentIds,
+                    ...claimableAttachmentIds,
+                ])
+            ),
+        };
+    });
+
+    saveInboxMailStates(nextStates);
+
+    return nextStates;
 };
 
 export const hasUnlockedRosterTab = () => {

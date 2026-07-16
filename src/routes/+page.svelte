@@ -9,10 +9,13 @@
         getOrCreateOwnedBeans,
         getOrCreateOwnedSeeds,
         getOrCreateGameUid,
+        getOrCreateInboxMailStates,
         getPlantedFarmBeans,
         getPlantedFarmSeeds,
         hasUnlockedRosterTab,
         hasUnreadRosterTab,
+        claimInboxMailAttachments,
+        markInboxMailRead,
         markRosterTabRead,
         markRosterTabUnlocked,
         markRosterTabUnread,
@@ -45,6 +48,7 @@
     import ProfileHud from "../lib/components/ProfileHud.svelte";
     import SettingsButton from "../lib/components/SettingsButton.svelte";
     import SettingsPopup from "../lib/components/SettingsPopup.svelte";
+    import InboxPopup from "../lib/components/InboxPopup.svelte";
     import RosterPanel from "../lib/components/RosterPanel.svelte";
     import LoginToast from "../lib/components/LoginToast.svelte";
     import TestPopup from "../lib/components/TestPopup.svelte";
@@ -61,6 +65,12 @@
         type PlantedFarmSeed,
         type SeedDefinition
     } from "../lib/beans";
+    import {
+        createInboxMails,
+        hasUnreadInboxMails,
+        type InboxMail,
+        type InboxMailState
+    } from "../lib/inbox";
 
     type PerformanceMemory = {
         usedJSHeapSize: number;
@@ -142,7 +152,11 @@
     let activeHarvestedBean: BeanDefinition | null = null;
     let isSettingsPopupVisible = false;
     let isSettingsShortcutPanelExpanded = true;
-    let activeSettingsShortcutPopup: "inbox" | "tester-thanks" | null = null;
+    let isInboxPopupVisible = false;
+    let activeSettingsShortcutPopup: "tester-thanks" | null = null;
+    let inboxMailStates: InboxMailState[] = [];
+    let inboxMails: InboxMail[] = [];
+    let hasUnreadInbox = false;
     let lockedMainTabs: MainTabKey[] = [];
     let unreadMainTabs: MainTabKey[] = [];
     let fpsAnimationFrameId: number | null = null;
@@ -162,11 +176,14 @@
         activeFarmSeedSlotId ||
         activeHarvestSeed ||
         isSettingsPopupVisible ||
+        isInboxPopupVisible ||
         activeSettingsShortcutPopup
     );
     $: selectedRosterBean = ownedBeans.find((bean) => bean.id === selectedRosterBeanId) ?? null;
     $: EventBus.emit("roster-selected-bean-changed", selectedRosterBean);
     $: EventBus.emit("farm-plant-panel-open-changed", activeFarmPlantSlotId !== null);
+    $: inboxMails = createInboxMails(inboxMailStates);
+    $: hasUnreadInbox = hasUnreadInboxMails(inboxMails);
 
     const updateGameFrame = () => {
 
@@ -481,6 +498,7 @@
 
         activeFarmSeedSlotId = null;
         isSettingsPopupVisible = false;
+        isInboxPopupVisible = false;
         activeSettingsShortcutPopup = null;
         if (tabKey === shopTabKey && activeMainTab !== shopTabKey)
         {
@@ -702,6 +720,7 @@
     const openSettingsPopup = () => {
 
         isSettingsPopupVisible = true;
+        isInboxPopupVisible = false;
         activeSettingsShortcutPopup = null;
 
     };
@@ -712,16 +731,31 @@
 
     };
 
+    const openInboxPopup = () => {
+
+        isInboxPopupVisible = true;
+        isSettingsPopupVisible = false;
+        activeSettingsShortcutPopup = null;
+
+    };
+
+    const closeInboxPopup = () => {
+
+        isInboxPopupVisible = false;
+
+    };
+
     const toggleSettingsShortcutPanel = () => {
 
         isSettingsShortcutPanelExpanded = !isSettingsShortcutPanelExpanded;
 
     };
 
-    const openSettingsShortcutPopup = (popupKey: "inbox" | "tester-thanks") => {
+    const openSettingsShortcutPopup = (popupKey: "tester-thanks") => {
 
         activeSettingsShortcutPopup = popupKey;
         isSettingsPopupVisible = false;
+        isInboxPopupVisible = false;
 
     };
 
@@ -733,10 +767,6 @@
 
     const getSettingsShortcutPopupTitle = () => {
 
-        if (activeSettingsShortcutPopup === "inbox") {
-            return "인박스";
-        }
-
         if (activeSettingsShortcutPopup === "tester-thanks") {
             return "게임테스터 감사의인사문";
         }
@@ -747,15 +777,23 @@
 
     const getSettingsShortcutPopupMessage = () => {
 
-        if (activeSettingsShortcutPopup === "inbox") {
-            return "인박스입니다.";
-        }
-
         if (activeSettingsShortcutPopup === "tester-thanks") {
             return "게임테스터 여러분, 테스트에 참여해주셔서 감사합니다.";
         }
 
         return "";
+
+    };
+
+    const readInboxMail = (mailId: string) => {
+
+        inboxMailStates = markInboxMailRead(mailId);
+
+    };
+
+    const claimInboxAttachments = (mailId: string, attachmentIds: readonly string[]) => {
+
+        inboxMailStates = claimInboxMailAttachments(mailId, attachmentIds);
 
     };
 
@@ -919,6 +957,7 @@
         gameUid = getOrCreateGameUid();
         ownedBeans = getOrCreateOwnedBeans();
         ownedSeeds = getOrCreateOwnedSeeds();
+        inboxMailStates = getOrCreateInboxMailStates();
         plantedFarmBeans = getPlantedFarmBeans();
         plantedFarmSeeds = getPlantedFarmSeeds();
         isRosterTabUnlocked = hasUnlockedRosterTab();
@@ -1054,7 +1093,8 @@
                         isPanelExpanded={isSettingsShortcutPanelExpanded}
                         onOpen={openSettingsPopup}
                         onTogglePanel={toggleSettingsShortcutPanel}
-                        onOpenInbox={() => openSettingsShortcutPopup("inbox")}
+                        {hasUnreadInbox}
+                        onOpenInbox={openInboxPopup}
                         onOpenTesterThanks={() => openSettingsShortcutPopup("tester-thanks")}
                     />
 
@@ -1147,6 +1187,15 @@
 
         {#if isGameFrameReady && hasGameStarted && !isShopTabActive && isSettingsPopupVisible && !isLoadingOverlayVisible}
             <SettingsPopup onClose={closeSettingsPopup} />
+        {/if}
+
+        {#if isGameFrameReady && hasGameStarted && !isShopTabActive && isInboxPopupVisible && !isLoadingOverlayVisible}
+            <InboxPopup
+                mails={inboxMails}
+                onRead={readInboxMail}
+                onClaim={claimInboxAttachments}
+                onClose={closeInboxPopup}
+            />
         {/if}
 
         {#if isGameFrameReady && hasGameStarted && !isShopTabActive && activeSettingsShortcutPopup && !isLoadingOverlayVisible}
